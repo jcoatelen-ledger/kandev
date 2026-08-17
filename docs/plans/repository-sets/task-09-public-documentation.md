@@ -1,7 +1,7 @@
 ---
 id: "09-public-documentation"
 title: "Public documentation for repository sets"
-status: pending
+status: done
 wave: 8
 depends_on: ["08-end-to-end-coverage"]
 plan: "plan.md"

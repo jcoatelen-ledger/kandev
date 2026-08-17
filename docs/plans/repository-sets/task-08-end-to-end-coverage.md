@@ -1,7 +1,7 @@
 ---
 id: "08-end-to-end-coverage"
 title: "End-to-end coverage for repository sets"
-status: pending
+status: done
 wave: 7
 depends_on: ["05-apply-set-in-picker", "06-save-selection-as-set", "07-settings-management"]
 plan: "plan.md"

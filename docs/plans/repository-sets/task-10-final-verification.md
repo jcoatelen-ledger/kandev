@@ -1,7 +1,7 @@
 ---
 id: "10-final-verification"
 title: "Final verification and spec reconciliation"
-status: pending
+status: done
 wave: 9
 depends_on: ["09-public-documentation"]
 plan: "plan.md"

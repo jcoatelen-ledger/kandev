@@ -1,5 +1,5 @@
 ---
-status: draft
+status: building
 created: 2026-08-17
 owner: kandev
 ---
@@ -55,8 +55,12 @@ per-task decision and are never stored in a set.
   member is skipped the dialog reports how many were skipped and why, as visible text.
 - The same control appears in the **new subtask** form, which uses the same repository picker. It
   does not appear in Quick Chat.
-- The control is absent when the workspace has no sets, and absent in **Remote URL** and **No
-  repository** source modes, where workspace repositories are not what is being selected.
+- The control is absent when the workspace has no sets **and** the current selection cannot be saved
+  as one, so a control that could only report "you have no sets" never appears. When the form does
+  hold a workspace repository, the control stays available with **Save as set** and no set entries:
+  otherwise the first set could never be defined from the flow that just chose the repositories.
+- The control is absent in **Remote URL** and **No repository** source modes, where workspace
+  repositories are not what is being selected.
 - When the chosen executor cannot run a multi-repository task, the control is disabled and states
   the reason in visible text rather than a hover-only tooltip, matching how **add repository** is
   already constrained.
