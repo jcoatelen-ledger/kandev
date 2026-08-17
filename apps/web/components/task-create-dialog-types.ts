@@ -2,6 +2,7 @@ import type React from "react";
 import type {
   LocalRepository,
   Repository,
+  RepositorySet,
   Executor,
   Task,
   CreateTaskResponse,
@@ -219,6 +220,11 @@ export type DialogComputedValues = {
   effectiveAgentProfileId: string;
   /** Display name of the currently selected executor profile (null if none). */
   selectedExecutorProfileName: string | null;
+  /**
+   * Executor type of the selected profile (null if none). Read by capability
+   * checks such as the multi-repository guard.
+   */
+  selectedExecutorType: string | null;
   /** True when an executor profile is selected and no agent profile is compatible with it. */
   noCompatibleAgent: boolean;
   /** Subset of agent profiles that pass the executor's auth-credential check. See `StoreSelections.compatibleAgentProfiles`. */
@@ -541,6 +547,13 @@ export type DialogFormBodyProps = {
   onToggleFreshBranch: (enabled: boolean) => void;
   onToggleNoRepository?: () => void;
   onWorkspacePathChange: (value: string) => void;
+  /** Repository sets available in this workspace, and how to apply one. */
+  repositorySets?: {
+    sets: RepositorySet[];
+    disabledReason: string | null;
+    onApply: (set: RepositorySet) => void;
+    footerActions?: React.ReactNode;
+  };
   localRepositoryCreation?: {
     executorSelection:
       | import("@/components/task-create-dialog-handlers").DirectLocalExecutorSelection

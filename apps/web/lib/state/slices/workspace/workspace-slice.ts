@@ -1,9 +1,11 @@
 import type { StateCreator } from "zustand";
 import type { WorkspaceSlice, WorkspaceSliceState } from "./types";
+import type { RepositorySet } from "@/lib/types/http";
 
 export const defaultWorkspaceState: WorkspaceSliceState = {
   workspaces: { items: [], activeId: null },
   repositories: { itemsByWorkspaceId: {}, loadingByWorkspaceId: {}, loadedByWorkspaceId: {} },
+  repositorySets: { itemsByWorkspaceId: {}, loadingByWorkspaceId: {}, loadedByWorkspaceId: {} },
   repositoryBranches: {
     itemsByRepositoryId: {},
     loadingByRepositoryId: {},
@@ -105,4 +107,68 @@ export const createWorkspaceSlice: StateCreator<
     set((draft) => {
       draft.repositories.loadedByWorkspaceId[workspaceId] = false;
     }),
+  ...createRepositorySetActions(set),
 });
+
+/**
+ * The repository-set actions, split out so the slice factory stays under the
+ * function-length cap.
+ */
+function createRepositorySetActions(
+  set: (recipe: (draft: WorkspaceSlice) => void) => void,
+): Pick<
+  WorkspaceSlice,
+  | "setRepositorySets"
+  | "setRepositorySetsLoading"
+  | "upsertRepositorySet"
+  | "removeRepositorySet"
+  | "invalidateRepositorySets"
+> {
+  return {
+    setRepositorySets: (workspaceId, sets) =>
+      set((draft) => {
+        draft.repositorySets.itemsByWorkspaceId[workspaceId] = sortRepositorySets(sets);
+        draft.repositorySets.loadingByWorkspaceId[workspaceId] = false;
+        draft.repositorySets.loadedByWorkspaceId[workspaceId] = true;
+      }),
+    setRepositorySetsLoading: (workspaceId, loading) =>
+      set((draft) => {
+        draft.repositorySets.loadingByWorkspaceId[workspaceId] = loading;
+      }),
+    upsertRepositorySet: (workspaceId, repositorySet) =>
+      set((draft) => {
+        const sets = draft.repositorySets.itemsByWorkspaceId[workspaceId] ?? [];
+        const existingIndex = sets.findIndex((candidate) => candidate.id === repositorySet.id);
+        if (existingIndex === -1) {
+          sets.push(repositorySet);
+        } else {
+          sets[existingIndex] = repositorySet;
+        }
+        // Re-sort rather than append: the list is rendered in this order, and a
+        // set arriving by WebSocket event would otherwise sit at the bottom while
+        // the same list refetched shows it in place.
+        draft.repositorySets.itemsByWorkspaceId[workspaceId] = sortRepositorySets(sets);
+        // Deliberately does not touch loadedByWorkspaceId: an event for a
+        // workspace never listed must not suppress its initial fetch.
+      }),
+    removeRepositorySet: (workspaceId, setId) =>
+      set((draft) => {
+        const sets = draft.repositorySets.itemsByWorkspaceId[workspaceId];
+        if (!sets) return;
+        draft.repositorySets.itemsByWorkspaceId[workspaceId] = sets.filter(
+          (candidate) => candidate.id !== setId,
+        );
+      }),
+    invalidateRepositorySets: (workspaceId) =>
+      set((draft) => {
+        draft.repositorySets.loadedByWorkspaceId[workspaceId] = false;
+      }),
+  };
+}
+
+/** Sets are listed by name, case-insensitively, matching the backend list order. */
+function sortRepositorySets(sets: RepositorySet[]): RepositorySet[] {
+  return [...sets].sort((left, right) =>
+    left.name.localeCompare(right.name, undefined, { sensitivity: "base" }),
+  );
+}

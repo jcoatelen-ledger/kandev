@@ -1,4 +1,4 @@
-import type { Repository, Branch, RepositoryScript } from "@/lib/types/http";
+import type { Repository, Branch, RepositoryScript, RepositorySet } from "@/lib/types/http";
 
 export type WorkspaceState = {
   items: Array<{
@@ -23,6 +23,17 @@ export type RepositoriesState = {
   loadedByWorkspaceId: Record<string, boolean>;
 };
 
+/**
+ * Named groups of workspace repositories, keyed by workspace like
+ * `RepositoriesState`. Hydrated from the boot payload and kept current by the
+ * `repository_set.*` WebSocket events.
+ */
+export type RepositorySetsState = {
+  itemsByWorkspaceId: Record<string, RepositorySet[]>;
+  loadingByWorkspaceId: Record<string, boolean>;
+  loadedByWorkspaceId: Record<string, boolean>;
+};
+
 export type RepositoryBranchesState = {
   itemsByRepositoryId: Record<string, Branch[]>;
   loadingByRepositoryId: Record<string, boolean>;
@@ -42,6 +53,7 @@ export type RepositoryScriptsState = {
 export type WorkspaceSliceState = {
   workspaces: WorkspaceState;
   repositories: RepositoriesState;
+  repositorySets: RepositorySetsState;
   repositoryBranches: RepositoryBranchesState;
   repositoryScripts: RepositoryScriptsState;
 };
@@ -63,6 +75,11 @@ export type WorkspaceSliceActions = {
   setRepositoryScriptsLoading: (repositoryId: string, loading: boolean) => void;
   clearRepositoryScripts: (repositoryId: string) => void;
   invalidateRepositories: (workspaceId: string) => void;
+  setRepositorySets: (workspaceId: string, sets: RepositorySet[]) => void;
+  setRepositorySetsLoading: (workspaceId: string, loading: boolean) => void;
+  upsertRepositorySet: (workspaceId: string, set: RepositorySet) => void;
+  removeRepositorySet: (workspaceId: string, setId: string) => void;
+  invalidateRepositorySets: (workspaceId: string) => void;
 };
 
 export type WorkspaceSlice = WorkspaceSliceState & WorkspaceSliceActions;

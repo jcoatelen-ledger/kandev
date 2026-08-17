@@ -317,6 +317,7 @@ func (b bootStateBuilder) addHomeKanbanRouteState(ctx context.Context, req *http
 		state["userSettings"] = mapUserSettingsStateWithWorkflow(settings, activeWorkspaceID, activeWorkflowID)
 	}
 	b.addRepositoriesState(ctx, state, activeWorkspaceID)
+	b.addRepositorySetsState(ctx, state, activeWorkspaceID)
 	b.addKanbanSnapshotsState(ctx, state, workflows, activeWorkflowID)
 }
 
@@ -373,6 +374,19 @@ func (b bootStateBuilder) addRepositoriesState(ctx context.Context, state map[st
 			workspaceID: true,
 		},
 	}
+}
+
+// addRepositorySetsState hydrates the home/kanban route with the workspace's
+// repository sets, so the create dialog can offer them without a fetch.
+func (b bootStateBuilder) addRepositorySetsState(ctx context.Context, state map[string]any, workspaceID string) {
+	items := repositorySetsToDTOs(nil)
+	sets, err := b.p.taskSvc.ListRepositorySets(ctx, workspaceID)
+	if err != nil {
+		b.logBootError("list home repository sets", err)
+	} else {
+		items = repositorySetsToDTOs(sets)
+	}
+	state["repositorySets"] = repositorySetsState(workspaceID, items)
 }
 
 func (b bootStateBuilder) addQuickChatState(

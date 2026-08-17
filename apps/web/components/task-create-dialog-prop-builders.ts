@@ -76,6 +76,7 @@ export function buildDialogFormBodyProps(
     lastUsedBranch: setup.taskCreateLastUsed.branch,
     userSettingsLoaded: setup.userSettingsLoaded,
     freshBranchAvailable: setup.freshBranchAvailable,
+    repositorySets: setup.repositorySets,
     isLocalExecutor: computed.isLocalExecutor,
     noCompatibleAgent: computed.noCompatibleAgent,
     executorProfileName: computed.selectedExecutorProfileName,

@@ -1,7 +1,7 @@
 ---
 id: "04-boot-and-web-data-layer"
 title: "Boot payload and web data layer for sets"
-status: pending
+status: done
 wave: 4
 depends_on: ["03-http-ws-surface"]
 plan: "plan.md"

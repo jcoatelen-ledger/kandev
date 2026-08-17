@@ -4,13 +4,14 @@ import { useRef, useState } from "react";
 import { IconGitFork } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@kandev/ui/tooltip";
-import type { Repository } from "@/lib/types/http";
+import type { Repository, RepositorySet } from "@/lib/types/http";
 import type { DialogFormState } from "@/components/task-create-dialog-types";
 import { RemoteRepoChipsRow } from "@/components/task-create-dialog-remote-repo-chips";
 import { FolderPicker } from "@/components/folder-picker";
 import { SourceModeSwitch } from "@/components/task-create-dialog-source-mode";
 import { WorkspaceRepoChips } from "@/components/task-create-dialog-workspace-repo-chips";
 import { CreateLocalRepositorySurface } from "@/components/create-local-repository-surface";
+import { RepositorySetsControl } from "@/components/task-create-dialog-repository-sets-control";
 import type { DirectLocalExecutorSelection } from "@/components/task-create-dialog-handlers";
 import { useTranslation } from "react-i18next";
 import { t } from "@/lib/i18n";
@@ -60,6 +61,19 @@ type RepoChipsRowProps = {
   };
   onRefreshRepositories?: () => void;
   repositoriesRefreshing?: boolean;
+  /**
+   * The workspace's repository sets, plus how to apply one. Grouped into a single
+   * prop so both surfaces that render this row (task create, new subtask) opt in
+   * with one line, and Quick Chat - which renders WorkspaceRepoChips directly -
+   * is untouched.
+   */
+  repositorySets?: {
+    sets: RepositorySet[];
+    /** Non-null when sets cannot be applied, e.g. a single-repository executor. */
+    disabledReason: string | null;
+    onApply: (set: RepositorySet) => void;
+    footerActions?: React.ReactNode;
+  };
 };
 
 export function RepoChipsRow({
@@ -81,6 +95,7 @@ export function RepoChipsRow({
   localRepositoryCreation,
   onRefreshRepositories,
   repositoriesRefreshing,
+  repositorySets,
 }: RepoChipsRowProps) {
   const chipRowRef = useRef<HTMLDivElement>(null);
   const [creatingForRowKey, setCreatingForRowKey] = useState<string | null>(null);
@@ -147,6 +162,18 @@ export function RepoChipsRow({
         onRefreshRepositories={onRefreshRepositories}
         repositoriesRefreshing={repositoriesRefreshing}
       />
+      {/* Sets select workspace repositories, so they are offered only in the mode
+          that selects those: not in Remote URL or No repository. */}
+      {repositorySets && !fs.useRemote && !fs.noRepository ? (
+        <RepositorySetsControl
+          sets={repositorySets.sets}
+          repositories={repositories}
+          rows={fs.repositories}
+          onApply={repositorySets.onApply}
+          disabledReason={repositorySets.disabledReason}
+          footerActions={repositorySets.footerActions}
+        />
+      ) : null}
       <SourceModeSwitch
         useRemote={fs.useRemote}
         noRepository={fs.noRepository}

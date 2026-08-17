@@ -1,7 +1,7 @@
 ---
 id: "01-persistence-contracts"
 title: "Repository set persistence contracts"
-status: pending
+status: done
 wave: 1
 depends_on: []
 plan: "plan.md"

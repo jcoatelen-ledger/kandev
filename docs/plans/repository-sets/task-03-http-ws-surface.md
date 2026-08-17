@@ -1,7 +1,7 @@
 ---
 id: "03-http-ws-surface"
 title: "Repository set HTTP and WebSocket surface"
-status: pending
+status: done
 wave: 3
 depends_on: ["02-service-and-events"]
 plan: "plan.md"

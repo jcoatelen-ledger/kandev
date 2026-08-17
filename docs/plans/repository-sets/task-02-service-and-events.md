@@ -1,7 +1,7 @@
 ---
 id: "02-service-and-events"
 title: "Repository set service, validation, and events"
-status: pending
+status: done
 wave: 2
 depends_on: ["01-persistence-contracts"]
 plan: "plan.md"

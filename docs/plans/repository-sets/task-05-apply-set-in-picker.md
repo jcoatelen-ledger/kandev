@@ -1,7 +1,7 @@
 ---
 id: "05-apply-set-in-picker"
 title: "Apply a repository set in the picker"
-status: pending
+status: done
 wave: 5
 depends_on: ["04-boot-and-web-data-layer"]
 plan: "plan.md"

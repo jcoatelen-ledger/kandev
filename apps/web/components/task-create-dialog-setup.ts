@@ -11,6 +11,9 @@ import { useUtilityAgentGenerator } from "@/hooks/use-utility-agent-generator";
 import { usePromptResultDelivery } from "@/hooks/use-prompt-result-delivery";
 import { useTaskSubmitHandlers } from "@/components/task-create-dialog-submit";
 import { useToast } from "@/components/toast-provider";
+import { useRepositorySets } from "@/hooks/domains/workspace/use-repository-sets";
+import { useApplyRepositorySet } from "@/components/task-create-dialog-repository-sets-apply";
+import { getMultiRepoExecutorDisabledReason } from "@/components/task-create-dialog-multi-repo-guard";
 import { useAppStore } from "@/components/state-provider";
 import {
   useDialogFormState,
@@ -320,6 +323,15 @@ export function useTaskCreateDialogSetup(
   const handleLinearImport = useLinearImportHandler(fs, data.handlers.handleTaskNameChange);
   const freshBranchAvailable =
     !fs.useRemote && computed.isLocalExecutor && fs.repositories.length === 1;
+  const repositorySets = useRepositorySetsForDialog({
+    workspaceId: resolvedProps.workspaceId ?? null,
+    open: resolvedProps.open,
+    rows: fs.repositories,
+    repositories,
+    setRepositories: fs.setRepositories,
+    executorType: computed.selectedExecutorType,
+    userSettingsLoaded,
+  });
   return {
     fs,
     isSessionMode,
@@ -339,12 +351,52 @@ export function useTaskCreateDialogSetup(
     submitHandlers,
     handleKeyDown,
     freshBranchAvailable,
+    repositorySets,
     taskCreateLastUsed,
     userSettingsLoaded,
     guardedHandleSubmit,
     enhance,
     handleJiraImport,
     handleLinearImport,
+  };
+}
+
+type RepositorySetsForDialogArgs = {
+  workspaceId: string | null;
+  open: boolean;
+  rows: DialogFormState["repositories"];
+  repositories: Repository[];
+  setRepositories: DialogFormState["setRepositories"];
+  executorType: string | null;
+  userSettingsLoaded: boolean;
+};
+
+/**
+ * Assembles the repository-set props the picker needs: the workspace's sets, why
+ * applying one is unavailable, and the apply handler.
+ *
+ * Gated on `userSettingsLoaded` because the repository auto-select effect writes
+ * rows again once user settings arrive; offering the control before then lets a
+ * user apply a set that autopick immediately overwrites.
+ */
+function useRepositorySetsForDialog({
+  workspaceId,
+  open,
+  rows,
+  repositories,
+  setRepositories,
+  executorType,
+  userSettingsLoaded,
+}: RepositorySetsForDialogArgs) {
+  const { sets } = useRepositorySets(workspaceId, open);
+  const onApply = useApplyRepositorySet({ rows, repositories, setRepositories });
+  if (!userSettingsLoaded) return undefined;
+  return {
+    sets,
+    // A set always means several repositories, so a single-repository executor
+    // cannot honor one. Same reason and wording as the add-repository control.
+    disabledReason: getMultiRepoExecutorDisabledReason(executorType),
+    onApply,
   };
 }
 

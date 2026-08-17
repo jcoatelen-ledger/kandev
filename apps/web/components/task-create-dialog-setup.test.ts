@@ -31,6 +31,13 @@ vi.mock("@/components/state-provider", () => ({
     selector({
       userSettings: { agentGeneratedTaskTitles: mocks.agentGeneratedTaskTitles },
       upsertRepository: vi.fn(),
+      repositorySets: {
+        itemsByWorkspaceId: {},
+        loadingByWorkspaceId: {},
+        loadedByWorkspaceId: {},
+      },
+      setRepositorySets: vi.fn(),
+      setRepositorySetsLoading: vi.fn(),
     }),
 }));
 vi.mock("@/components/task-create-dialog-submit", () => ({
