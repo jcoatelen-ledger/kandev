@@ -1,7 +1,7 @@
 ---
 id: "06-save-selection-as-set"
 title: "Save the current selection as a set"
-status: pending
+status: done
 wave: 6
 depends_on: ["05-apply-set-in-picker"]
 plan: "plan.md"

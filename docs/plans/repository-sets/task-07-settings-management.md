@@ -1,7 +1,7 @@
 ---
 id: "07-settings-management"
 title: "Manage sets in workspace settings"
-status: pending
+status: done
 wave: 5
 depends_on: ["04-boot-and-web-data-layer"]
 plan: "plan.md"

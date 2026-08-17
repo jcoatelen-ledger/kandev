@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback } from "react";
+import { FormEvent, useCallback, useState } from "react";
 import type { JiraTicket } from "@/lib/types/jira";
 import type { LinearIssue } from "@/lib/types/linear";
 import type { Repository } from "@/lib/types/http";
@@ -13,6 +13,7 @@ import { useTaskSubmitHandlers } from "@/components/task-create-dialog-submit";
 import { useToast } from "@/components/toast-provider";
 import { useRepositorySets } from "@/hooks/domains/workspace/use-repository-sets";
 import { useApplyRepositorySet } from "@/components/task-create-dialog-repository-sets-apply";
+import { selectedRepositoryIdsForSet } from "@/components/task-create-dialog-repository-sets";
 import { getMultiRepoExecutorDisabledReason } from "@/components/task-create-dialog-multi-repo-guard";
 import { useAppStore } from "@/components/state-provider";
 import {
@@ -390,6 +391,10 @@ function useRepositorySetsForDialog({
 }: RepositorySetsForDialogArgs) {
   const { sets } = useRepositorySets(workspaceId, open);
   const onApply = useApplyRepositorySet({ rows, repositories, setRepositories });
+  const [saveOpen, setSaveOpen] = useState(false);
+  // Offer "Save as set" only when there is a workspace-repository selection worth
+  // saving, so the action is never a dead end.
+  const canSave = Boolean(workspaceId) && selectedRepositoryIdsForSet(rows).length > 0;
   if (!userSettingsLoaded) return undefined;
   return {
     sets,
@@ -397,6 +402,7 @@ function useRepositorySetsForDialog({
     // cannot honor one. Same reason and wording as the add-repository control.
     disabledReason: getMultiRepoExecutorDisabledReason(executorType),
     onApply,
+    save: canSave && workspaceId ? { workspaceId, rows, open: saveOpen, setOpen: setSaveOpen } : null,
   };
 }
 

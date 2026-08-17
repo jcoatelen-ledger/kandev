@@ -264,8 +264,8 @@ cd apps/web && pnpm e2e:raw --grep "repository set"
 | [task-03-http-ws-surface](task-03-http-ws-surface.md) | done |
 | [task-04-boot-and-web-data-layer](task-04-boot-and-web-data-layer.md) | done |
 | [task-05-apply-set-in-picker](task-05-apply-set-in-picker.md) | done |
-| [task-06-save-selection-as-set](task-06-save-selection-as-set.md) | pending |
-| [task-07-settings-management](task-07-settings-management.md) | pending |
+| [task-06-save-selection-as-set](task-06-save-selection-as-set.md) | done |
+| [task-07-settings-management](task-07-settings-management.md) | done |
 | [task-08-end-to-end-coverage](task-08-end-to-end-coverage.md) | pending |
 | [task-09-public-documentation](task-09-public-documentation.md) | pending |
 | [task-10-final-verification](task-10-final-verification.md) | pending |

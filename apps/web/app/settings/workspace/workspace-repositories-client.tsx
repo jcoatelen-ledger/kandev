@@ -8,6 +8,8 @@ import { IconGitBranch } from "@tabler/icons-react";
 import { Button } from "@kandev/ui/button";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { RepositoryCard } from "@/components/settings/repository-card";
+import { WorkspaceRepositorySetsSection } from "./workspace-repository-sets-section";
+import { AddLocalRepositoryDialog } from "./workspace-add-local-repository-dialog";
 import { generateUUID } from "@/lib/utils";
 import {
   createRepositoryAction,
@@ -29,10 +31,7 @@ import {
 import { useRequest } from "@/lib/http/use-request";
 import { useToast } from "@/components/toast-provider";
 import { useAppStore } from "@/components/state-provider";
-import {
-  DiscoverRepoDialog,
-  type ManualValidation,
-} from "@/app/settings/workspace/workspace-repositories-dialog";
+import type { ManualValidation } from "@/app/settings/workspace/workspace-repositories-dialog";
 import { WorkspaceNotFoundCard } from "@/app/settings/workspace/workspace-not-found-card";
 import {
   areRepositoryScriptsDirty,
@@ -424,7 +423,7 @@ function useDiscoverDialog(
     discoveredRepositories,
   };
 }
-function useWorkspaceRepositoriesPage(
+export function useWorkspaceRepositoriesPage(
   workspace: Workspace | null,
   repositories: RepositoryWithScripts[],
 ) {
@@ -527,6 +526,8 @@ export function WorkspaceRepositoriesClient({
 }: WorkspaceRepositoriesClientProps) {
   const { t } = useTranslation();
   const state = useWorkspaceRepositoriesPage(workspace, repositories);
+  // The add-local-repository dialog reads the rest of `state` directly, so only
+  // what this component renders is destructured here.
   const {
     router,
     repositoryItems,
@@ -537,22 +538,7 @@ export function WorkspaceRepositoriesClient({
     handleDeleteRepositoryScript,
     handleSaveRepository,
     handleDeleteRepository,
-    localRepoDialogOpen,
-    setLocalRepoDialogOpen,
-    filteredRepositories,
-    repoSearch,
-    setRepoSearch,
-    selectedRepoPath,
-    handleSelectRepoPath,
-    manualRepoPath,
-    handleManualRepoPathChange,
-    manualValidation,
-    handleValidateManualPath,
-    isValidating,
-    isDiscovering,
-    canSave,
     openDialog,
-    handleConfirmLocalRepository,
   } = state;
 
   if (!workspace)
@@ -600,25 +586,15 @@ export function WorkspaceRepositoriesClient({
           ))}
         </div>
       </SettingsSection>
-      {!isImproveWorkspace && (
-        <DiscoverRepoDialog
-          open={localRepoDialogOpen}
-          onOpenChange={setLocalRepoDialogOpen}
-          isLoading={isDiscovering}
-          filteredRepositories={filteredRepositories}
-          repoSearch={repoSearch}
-          onRepoSearchChange={setRepoSearch}
-          selectedRepoPath={selectedRepoPath}
-          onSelectRepoPath={handleSelectRepoPath}
-          manualRepoPath={manualRepoPath}
-          onManualRepoPathChange={handleManualRepoPathChange}
-          manualValidation={manualValidation}
-          onValidateManualPath={handleValidateManualPath}
-          isValidating={isValidating}
-          canSave={canSave}
-          onConfirm={handleConfirmLocalRepository}
-        />
-      )}
+      {/* Sets group the repositories listed above, so they belong on this page
+          rather than on a tab of their own. */}
+      <WorkspaceRepositorySetsSection
+        workspaceId={workspace.id}
+        repositories={repositoryItems}
+        readOnly={isImproveWorkspace}
+      />
+      {!isImproveWorkspace && <AddLocalRepositoryDialog state={state} />}
     </div>
   );
 }
+
