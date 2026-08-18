@@ -62,11 +62,7 @@ test.describe("Task creation with repository sets", () => {
     seedData,
     backend,
   }) => {
-    const { secondRepositoryId } = await seedSetWithTwoRepositories(
-      apiClient,
-      seedData,
-      backend,
-    );
+    const { secondRepositoryId } = await seedSetWithTwoRepositories(apiClient, seedData, backend);
 
     await testPage.goto("/");
     await testPage.getByTestId("create-task-button").first().click();
@@ -108,9 +104,7 @@ test.describe("Task creation with repository sets", () => {
     const raw = await apiClient.rawRequest("GET", `/api/v1/tasks/${created!.id}`);
     const data = (await raw.json()) as TaskWithRepos;
     const repoIds = data.repositories?.map((entry) => entry.repository_id) ?? [];
-    expect(repoIds).toEqual(
-      expect.arrayContaining([seedData.repositoryId, secondRepositoryId]),
-    );
+    expect(repoIds).toEqual(expect.arrayContaining([seedData.repositoryId, secondRepositoryId]));
     expect(repoIds).toHaveLength(2);
   });
 
@@ -156,6 +150,47 @@ test.describe("Task creation with repository sets", () => {
     await dialog.getByTestId(SETS_TRIGGER).click();
     await expect(testPage.getByTestId("repository-set-save-action")).toBeVisible();
     await expect(testPage.getByTestId(SET_OPTION)).toHaveCount(0);
+  });
+
+  test("the Sets control survives a Remote/None round trip without a disabled reason", async ({
+    testPage,
+    apiClient,
+    seedData,
+    backend,
+  }) => {
+    await seedSetWithTwoRepositories(apiClient, seedData, backend, {
+      setName: "Round trip set",
+      dirName: "repository-sets-mode-round-trip",
+    });
+
+    await testPage.goto("/");
+    await testPage.getByTestId("create-task-button").first().click();
+    const dialog = testPage.getByTestId("create-task-dialog");
+    await expect(dialog).toBeVisible();
+    const trigger = dialog.getByTestId(SETS_TRIGGER);
+    const row = dialog.getByTestId("repo-chips-row");
+    await expect(trigger).toBeEnabled();
+
+    // Sets select workspace repositories, so they are not offered in the modes
+    // that select something else.
+    await dialog.getByTestId("source-mode-scratch").click();
+    await expect(trigger).toHaveCount(0);
+    await dialog.getByTestId("source-mode-remote").click();
+    await expect(trigger).toHaveCount(0);
+
+    // Returning to Repo leaves the executor on Local, because No repository moved
+    // it off worktree. The control must come back usable rather than greyed out:
+    // gating it on executor capability once wedged a full sentence into this row,
+    // and the menu opened anyway because DropdownMenuTrigger owns its own pointer
+    // handlers.
+    await dialog.getByTestId("source-mode-workspace").click();
+    await expect(trigger).toBeEnabled();
+    await expect(row).not.toContainText("Multi-repo tasks are unavailable");
+
+    await trigger.click();
+    await expect(testPage.getByTestId(SET_OPTION).first()).toBeVisible();
+    await testPage.getByTestId(SET_OPTION).first().click();
+    await expect(dialog.getByTestId(REPO_CHIP_TRIGGER)).toHaveCount(2);
   });
 
   test("saving the current selection creates a set the backend can list", async ({
