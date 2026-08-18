@@ -38,6 +38,7 @@ import {
   cloneRepository,
   isRepositoryDirty,
   mergeSavedRepositoryDraft,
+  persistedRepositoryItems,
   type RepositoryWithScripts,
 } from "@/app/settings/workspace/workspace-repositories-dirty";
 import { defaultWorktreeBranchTemplate } from "@/lib/worktree-branch-template";
@@ -590,10 +591,9 @@ export function WorkspaceRepositoriesClient({
           rather than on a tab of their own. */}
       <WorkspaceRepositorySetsSection
         workspaceId={workspace.id}
-        // Only persisted repositories: repositoryItems also carries unsaved
-        // draft rows whose `temp-repo-` ids do not exist server-side, and the
-        // member picker promises "this workspace's live repositories".
-        repositories={repositories}
+        // Keep the member picker in sync with repository edits on this page,
+        // while excluding temporary rows that do not exist server-side.
+        repositories={persistedRepositoryItems(repositoryItems)}
         readOnly={isImproveWorkspace}
       />
       {!isImproveWorkspace && <AddLocalRepositoryDialog state={state} />}
