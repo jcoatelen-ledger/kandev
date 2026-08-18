@@ -53,6 +53,11 @@ test.describe("Repository sets in the mobile task-create picker", () => {
     await expect(repositoryChips).toHaveCount(2);
     await expect(repositoryChips.nth(1)).toContainText(SECOND_REPO_NAME);
 
+    if (prCapture.capturing) {
+      // Let the bottom sheet finish dismissing so the asset shows the resulting
+      // rows rather than a half-faded menu over them.
+      await expect(options).toHaveCount(0);
+    }
     await assertNoDocumentHorizontalOverflow(testPage, "repository set applied on mobile");
     await prCapture.screenshot("mobile-repository-set-applied", {
       caption: "Applying a repository set on a phone fills the picker with both members.",
