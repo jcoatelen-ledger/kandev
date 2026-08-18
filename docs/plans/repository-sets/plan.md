@@ -41,7 +41,9 @@ Two deliberate model choices, both from the spec:
   step appended to the `steps` slice in `initSchema` (`base_schema.go:16-48`) after the core schema,
   so `repositories` and `workspaces` exist. Model the tables on `task_repositories`
   (`base_schema.go:354-367`): `ON DELETE CASCADE` on both foreign keys,
-  `UNIQUE(workspace_id, name)` on sets and `UNIQUE(repository_set_id, repository_id)` on items.
+  `UNIQUE(workspace_id, name)` on sets and `UNIQUE(repository_set_id, repository_id)` on items, plus
+  a unique index on `(workspace_id, LOWER(name))` so the case-insensitive name rule the service
+  enforces has a database backstop as well.
 - Add the same tables idempotently in `runMigrations()`
   (`apps/backend/internal/task/repository/sqlite/base_migrations.go:124`) via
   `MigrateLogger.Apply("repository_sets.table", …)` and `"repository_set_items.table"`, plus

@@ -13,6 +13,7 @@ type MockState = {
     itemsByWorkspaceId: Record<string, RepositorySet[]>;
     loadingByWorkspaceId: Record<string, boolean>;
     loadedByWorkspaceId: Record<string, boolean>;
+    revisionByWorkspaceId: Record<string, number>;
   };
   setRepositorySets: typeof mockSetRepositorySets;
   setRepositorySetsLoading: typeof mockSetRepositorySetsLoading;
@@ -48,6 +49,7 @@ function setup(options: { loaded: boolean; items?: RepositorySet[] }) {
       itemsByWorkspaceId: options.items ? { "ws-1": options.items } : {},
       loadingByWorkspaceId: {},
       loadedByWorkspaceId: { "ws-1": options.loaded },
+      revisionByWorkspaceId: {},
     },
     setRepositorySets: mockSetRepositorySets,
     setRepositorySetsLoading: mockSetRepositorySetsLoading,
@@ -67,7 +69,9 @@ describe("useRepositorySets", () => {
 
     await waitFor(() => expect(mockSetRepositorySets).toHaveBeenCalled());
     expect(mockListRepositorySets).toHaveBeenCalledTimes(1);
-    expect(mockSetRepositorySets).toHaveBeenCalledWith("ws-1", [repositorySet("set-1")]);
+    // The third argument is the revision read before the request; the slice drops
+    // the response when a WebSocket event moved it meanwhile.
+    expect(mockSetRepositorySets).toHaveBeenCalledWith("ws-1", [repositorySet("set-1")], 0);
   });
 
   it("does not fetch when boot already hydrated the workspace, even with no sets", async () => {
@@ -112,9 +116,7 @@ describe("useRepositorySets", () => {
 
     renderHook(() => useRepositorySets("ws-1"));
 
-    await waitFor(() =>
-      expect(mockSetRepositorySetsLoading).toHaveBeenCalledWith("ws-1", false),
-    );
+    await waitFor(() => expect(mockSetRepositorySetsLoading).toHaveBeenCalledWith("ws-1", false));
     expect(mockSetRepositorySets).not.toHaveBeenCalled();
   });
 
@@ -125,7 +127,7 @@ describe("useRepositorySets", () => {
     await result.current.refresh();
 
     expect(mockListRepositorySets).toHaveBeenCalledTimes(1);
-    expect(mockSetRepositorySets).toHaveBeenCalledWith("ws-1", [repositorySet("set-1")]);
+    expect(mockSetRepositorySets).toHaveBeenCalledWith("ws-1", [repositorySet("set-1")], 0);
 
     mockListRepositorySets.mockRejectedValue(new Error("offline"));
     mockSetRepositorySets.mockClear();

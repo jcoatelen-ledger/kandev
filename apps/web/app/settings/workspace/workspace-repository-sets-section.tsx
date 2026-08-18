@@ -83,6 +83,7 @@ export function WorkspaceRepositorySetsSection({
       />
       <RepositorySetDeleteDialog
         set={manager.deleting}
+        error={manager.deleting ? manager.error : null}
         onClose={manager.cancelDelete}
         onConfirm={manager.confirmDelete}
       />
@@ -111,7 +112,9 @@ function RepositorySetRow({
   onDelete,
 }: RepositorySetRowProps) {
   const { t } = useTranslation();
-  const namesById = new Map(repositories.map((repository) => [repository.id as string, repository]));
+  const namesById = new Map(
+    repositories.map((repository) => [repository.id as string, repository]),
+  );
 
   return (
     <div

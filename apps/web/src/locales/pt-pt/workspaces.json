@@ -149,5 +149,7 @@
   "repositorySetsSave": "Guardar conjunto",
   "repositorySetsNameTaken": "Já existe um conjunto com este nome nesta área de trabalho.",
   "repositorySetsMemberRejected": "Um dos repositórios escolhidos já não está disponível nesta área de trabalho.",
-  "repositorySetsSaveFailed": "Não foi possível guardar o conjunto. Tente novamente."
+  "repositorySetsSaveFailed": "Não foi possível guardar o conjunto. Tente novamente.",
+  "repositorySetsAlreadyDeleted": "Este conjunto já foi eliminado. Atualize para ver a lista atual.",
+  "repositorySetsDeleteFailed": "Não foi possível eliminar o conjunto. Tente novamente."
 }

@@ -287,7 +287,11 @@ export type AppState = KanbanSlice & {
   setRepositoryScriptsLoading: (repositoryId: string, loading: boolean) => void;
   clearRepositoryScripts: (repositoryId: string) => void;
   invalidateRepositories: (workspaceId: string) => void;
-  setRepositorySets: (workspaceId: string, sets: RepositorySet[]) => void;
+  setRepositorySets: (
+    workspaceId: string,
+    sets: RepositorySet[],
+    expectedRevision?: number,
+  ) => void;
   setRepositorySetsLoading: (workspaceId: string, loading: boolean) => void;
   upsertRepositorySet: (workspaceId: string, set: RepositorySet) => void;
   removeRepositorySet: (workspaceId: string, setId: string) => void;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAppStore } from "@/components/state-provider";
 import type { RepositorySet } from "@/lib/types/http";
 import { listRepositorySets } from "@/lib/api";
@@ -28,13 +28,22 @@ export function useRepositorySets(workspaceId: string | null, enabled = true) {
   );
   const setRepositorySets = useAppStore((state) => state.setRepositorySets);
   const setRepositorySetsLoading = useAppStore((state) => state.setRepositorySetsLoading);
+  // Selecting the number (not the whole store) keeps this a re-render only when
+  // the revision actually moves; the ref lets an in-flight request read the
+  // value as of its own start rather than a stale closure capture.
+  const revision = useAppStore((state) =>
+    workspaceId ? (state.repositorySets.revisionByWorkspaceId[workspaceId] ?? 0) : 0,
+  );
+  const revisionRef = useRef(revision);
+  revisionRef.current = revision;
 
   const refresh = useCallback(async () => {
     if (!enabled || !workspaceId) return;
     setRepositorySetsLoading(workspaceId, true);
+    const requestRevision = revisionRef.current;
     try {
       const response = await listRepositorySets(workspaceId, { cache: "no-store" });
-      setRepositorySets(workspaceId, response.repository_sets);
+      setRepositorySets(workspaceId, response.repository_sets, requestRevision);
     } catch {
       // Keep the cached sets when a manual refresh fails.
     } finally {
@@ -46,10 +55,11 @@ export function useRepositorySets(workspaceId: string | null, enabled = true) {
     if (!enabled || !workspaceId || isLoaded) return;
     let cancelled = false;
     setRepositorySetsLoading(workspaceId, true);
+    const requestRevision = revisionRef.current;
     listRepositorySets(workspaceId, { cache: "no-store" })
       .then((response) => {
         if (cancelled) return;
-        setRepositorySets(workspaceId, response.repository_sets);
+        setRepositorySets(workspaceId, response.repository_sets, requestRevision);
       })
       .catch(() => {
         // Leave the workspace unloaded after a failure so the next mount can

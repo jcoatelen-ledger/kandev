@@ -35,6 +35,7 @@ vi.mock("@/components/state-provider", () => ({
         itemsByWorkspaceId: {},
         loadingByWorkspaceId: {},
         loadedByWorkspaceId: {},
+        revisionByWorkspaceId: {},
       },
       setRepositorySets: vi.fn(),
       setRepositorySetsLoading: vi.fn(),

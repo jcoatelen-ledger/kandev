@@ -122,15 +122,11 @@ func (s *Service) UpdateRepositorySet(
 	if err := s.prepareRepositorySetUpdate(ctx, set, req); err != nil {
 		return nil, err
 	}
-	if req.Name != nil || req.Description != nil {
-		if err := s.repositorySets.UpdateRepositorySet(ctx, set); err != nil {
-			return nil, err
-		}
-	}
-	if req.RepositoryIDs != nil {
-		if err := s.repositorySets.ReplaceRepositorySetItems(ctx, set.ID, *req.RepositoryIDs); err != nil {
-			return nil, err
-		}
+	// One call, one transaction: a rename that lands while the membership
+	// replacement fails would leave the set renamed but still holding the old
+	// repositories, with this method reporting failure and publishing nothing.
+	if err := s.repositorySets.UpdateRepositorySet(ctx, set, req.RepositoryIDs); err != nil {
+		return nil, err
 	}
 	updated, err := s.repositorySets.GetRepositorySet(ctx, set.ID)
 	if err != nil {
@@ -186,6 +182,36 @@ func (s *Service) DeleteRepositorySet(ctx context.Context, id string) error {
 	return nil
 }
 
+// repositorySetIDsHolding reports which sets currently hold a repository. A
+// lookup failure is logged and treated as "none": it must not block the
+// repository deletion the caller is performing.
+func (s *Service) repositorySetIDsHolding(ctx context.Context, repositoryID string) []string {
+	if s.repositorySets == nil {
+		return nil
+	}
+	ids, err := s.repositorySets.ListRepositorySetIDsByRepository(ctx, repositoryID)
+	if err != nil {
+		s.logger.Warn("failed to list repository sets holding repository",
+			zap.String("repository_id", repositoryID), zap.Error(err))
+		return nil
+	}
+	return ids
+}
+
+// publishRepositorySetsAfterMembershipChange re-reads each affected set and
+// publishes its post-change shape, so clients that only react to
+// repository_set.* events converge without a reload.
+func (s *Service) publishRepositorySetsAfterMembershipChange(ctx context.Context, setIDs []string) {
+	for _, setID := range setIDs {
+		set, err := s.repositorySets.GetRepositorySet(ctx, setID)
+		if err != nil {
+			// A set deleted concurrently has its own deleted event; nothing to say.
+			continue
+		}
+		s.publishRepositorySetEvent(ctx, events.RepositorySetUpdated, set)
+	}
+}
+
 // validateRepositorySetName trims and bounds a set name.
 func validateRepositorySetName(raw string) (string, error) {
 	name := strings.TrimSpace(raw)
@@ -203,8 +229,9 @@ func validateRepositorySetName(raw string) (string, error) {
 
 // assertRepositorySetNameFree rejects a name already used in the workspace,
 // naming the holder so the client can point at it. exceptID lets a set keep its
-// own name across an update. The database's UNIQUE(workspace_id, name) is the
-// backstop for two concurrent creates racing past this check.
+// own name across an update. The database's unique index on
+// (workspace_id, LOWER(name)) is the backstop for two concurrent creates racing
+// past this check, including two that differ only in case.
 func (s *Service) assertRepositorySetNameFree(
 	ctx context.Context,
 	workspaceID string,

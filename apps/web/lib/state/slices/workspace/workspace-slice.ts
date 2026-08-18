@@ -5,7 +5,12 @@ import type { RepositorySet } from "@/lib/types/http";
 export const defaultWorkspaceState: WorkspaceSliceState = {
   workspaces: { items: [], activeId: null },
   repositories: { itemsByWorkspaceId: {}, loadingByWorkspaceId: {}, loadedByWorkspaceId: {} },
-  repositorySets: { itemsByWorkspaceId: {}, loadingByWorkspaceId: {}, loadedByWorkspaceId: {} },
+  repositorySets: {
+    itemsByWorkspaceId: {},
+    loadingByWorkspaceId: {},
+    loadedByWorkspaceId: {},
+    revisionByWorkspaceId: {},
+  },
   repositoryBranches: {
     itemsByRepositoryId: {},
     loadingByRepositoryId: {},
@@ -125,8 +130,13 @@ function createRepositorySetActions(
   | "invalidateRepositorySets"
 > {
   return {
-    setRepositorySets: (workspaceId, sets) =>
+    setRepositorySets: (workspaceId, sets, expectedRevision) =>
       set((draft) => {
+        const current = draft.repositorySets.revisionByWorkspaceId[workspaceId] ?? 0;
+        // A response captured before a WebSocket event must not be applied after
+        // it: doing so removes a newly created set, resurrects a deleted one, or
+        // restores stale membership.
+        if (expectedRevision !== undefined && expectedRevision !== current) return;
         draft.repositorySets.itemsByWorkspaceId[workspaceId] = sortRepositorySets(sets);
         draft.repositorySets.loadingByWorkspaceId[workspaceId] = false;
         draft.repositorySets.loadedByWorkspaceId[workspaceId] = true;
@@ -148,6 +158,7 @@ function createRepositorySetActions(
         // set arriving by WebSocket event would otherwise sit at the bottom while
         // the same list refetched shows it in place.
         draft.repositorySets.itemsByWorkspaceId[workspaceId] = sortRepositorySets(sets);
+        bumpRepositorySetRevision(draft, workspaceId);
         // Deliberately does not touch loadedByWorkspaceId: an event for a
         // workspace never listed must not suppress its initial fetch.
       }),
@@ -158,12 +169,22 @@ function createRepositorySetActions(
         draft.repositorySets.itemsByWorkspaceId[workspaceId] = sets.filter(
           (candidate) => candidate.id !== setId,
         );
+        bumpRepositorySetRevision(draft, workspaceId);
       }),
     invalidateRepositorySets: (workspaceId) =>
       set((draft) => {
         draft.repositorySets.loadedByWorkspaceId[workspaceId] = false;
       }),
   };
+}
+
+/**
+ * Marks a workspace's repository sets as changed by an event. A list response
+ * captured before this bump is dropped rather than applied over it.
+ */
+function bumpRepositorySetRevision(draft: WorkspaceSlice, workspaceId: string): void {
+  draft.repositorySets.revisionByWorkspaceId[workspaceId] =
+    (draft.repositorySets.revisionByWorkspaceId[workspaceId] ?? 0) + 1;
 }
 
 /** Sets are listed by name, case-insensitively, matching the backend list order. */

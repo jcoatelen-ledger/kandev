@@ -105,9 +105,12 @@ describe("SaveRepositorySetDialog", () => {
 
   it("reports a duplicate name inline and keeps the dialog open with the draft intact", async () => {
     mockCreateRepositorySet.mockRejectedValue(
-      Object.assign(new Error('repository set name already used: "Full-stack" already uses this name'), {
-        status: 409,
-      }),
+      Object.assign(
+        new Error('repository set name already used: "Full-stack" already uses this name'),
+        {
+          status: 409,
+        },
+      ),
     );
     const { onOpenChange } = renderDialog();
 

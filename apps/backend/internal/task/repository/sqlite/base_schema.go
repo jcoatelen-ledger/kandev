@@ -426,6 +426,13 @@ const repositorySetsSchemaDDL = `
 
 	CREATE INDEX IF NOT EXISTS idx_repository_sets_workspace_id
 		ON repository_sets(workspace_id);
+	-- Names are compared case-insensitively, so the plain UNIQUE(workspace_id,
+	-- name) above is not the concurrency backstop the service assumes: two
+	-- concurrent creates of "Full-stack" and "full-stack" would both pass the
+	-- service's lookup and both insert. An expression index closes that, and
+	-- LOWER() is available on both SQLite and Postgres.
+	CREATE UNIQUE INDEX IF NOT EXISTS uniq_repository_sets_workspace_lower_name
+		ON repository_sets(workspace_id, LOWER(name));
 	CREATE INDEX IF NOT EXISTS idx_repository_set_items_set_position
 		ON repository_set_items(repository_set_id, position);
 	CREATE INDEX IF NOT EXISTS idx_repository_set_items_repository_id

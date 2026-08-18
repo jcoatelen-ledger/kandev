@@ -226,6 +226,42 @@ func (h *RepositorySetHandlers) httpDeleteRepositorySet(c *gin.Context) {
 
 // WebSocket handlers
 
+// wsRejectReadOnlyWorkspace mirrors the HTTP guard for WebSocket mutations. The
+// HTTP path resolves the workspace before writing; without the same check here a
+// WebSocket client could create, update, or delete sets in the read-only Improve
+// Kandev workspace.
+func (h *RepositorySetHandlers) wsRejectReadOnlyWorkspace(
+	ctx context.Context,
+	msg *ws.Message,
+	workspaceID string,
+) (*ws.Message, bool) {
+	workspace, err := h.service.GetWorkspace(ctx, workspaceID)
+	if err != nil {
+		errMsg, _ := ws.NewError(msg.ID, msg.Action, ws.ErrorCodeNotFound, "workspace not found", nil)
+		return errMsg, true
+	}
+	if workspace.IsImproveKandev() {
+		errMsg, _ := ws.NewError(msg.ID, msg.Action, ws.ErrorCodeValidation, workspaceReadOnlyMsg, nil)
+		return errMsg, true
+	}
+	return nil, false
+}
+
+// wsRejectReadOnlySet resolves a set's workspace before a mutation keyed by set
+// id, so update and delete are guarded exactly like create.
+func (h *RepositorySetHandlers) wsRejectReadOnlySet(
+	ctx context.Context,
+	msg *ws.Message,
+	setID string,
+) (*ws.Message, bool) {
+	set, err := h.service.GetRepositorySet(ctx, setID)
+	if err != nil {
+		errMsg, _ := h.wsRepositorySetError(msg, "get repository set", err)
+		return errMsg, true
+	}
+	return h.wsRejectReadOnlyWorkspace(ctx, msg, set.WorkspaceID)
+}
+
 // wsRepositorySetError maps a service error onto the WS error codes, mirroring
 // the HTTP status mapping so both transports categorize failures the same way.
 func (h *RepositorySetHandlers) wsRepositorySetError(msg *ws.Message, action string, err error) (*ws.Message, error) {
@@ -261,6 +297,9 @@ func (h *RepositorySetHandlers) wsCreateRepositorySet(ctx context.Context, msg *
 	if err := msg.ParsePayload(&req); err != nil {
 		return ws.NewError(msg.ID, msg.Action, ws.ErrorCodeBadRequest, "Invalid payload: "+err.Error(), nil)
 	}
+	if errMsg, blocked := h.wsRejectReadOnlyWorkspace(ctx, msg, req.WorkspaceID); blocked {
+		return errMsg, nil
+	}
 	set, err := h.service.CreateRepositorySet(ctx, &service.CreateRepositorySetRequest{
 		WorkspaceID:   req.WorkspaceID,
 		Name:          req.Name,
@@ -295,6 +334,9 @@ func (h *RepositorySetHandlers) wsUpdateRepositorySet(ctx context.Context, msg *
 	if err := msg.ParsePayload(&req); err != nil {
 		return ws.NewError(msg.ID, msg.Action, ws.ErrorCodeBadRequest, "Invalid payload: "+err.Error(), nil)
 	}
+	if errMsg, blocked := h.wsRejectReadOnlySet(ctx, msg, req.ID); blocked {
+		return errMsg, nil
+	}
 	updated, err := h.service.UpdateRepositorySet(ctx, req.ID, &service.UpdateRepositorySetRequest{
 		Name:          req.Name,
 		Description:   req.Description,
@@ -312,6 +354,9 @@ func (h *RepositorySetHandlers) wsDeleteRepositorySet(ctx context.Context, msg *
 	}
 	if err := msg.ParsePayload(&req); err != nil {
 		return ws.NewError(msg.ID, msg.Action, ws.ErrorCodeBadRequest, "Invalid payload: "+err.Error(), nil)
+	}
+	if errMsg, blocked := h.wsRejectReadOnlySet(ctx, msg, req.ID); blocked {
+		return errMsg, nil
 	}
 	if err := h.service.DeleteRepositorySet(ctx, req.ID); err != nil {
 		return h.wsRepositorySetError(msg, "delete repository set", err)

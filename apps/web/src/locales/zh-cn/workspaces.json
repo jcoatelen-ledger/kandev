@@ -149,5 +149,7 @@
   "repositorySetsSave": "保存",
   "repositorySetsNameTaken": "此工作区中已存在同名的仓库集。",
   "repositorySetsMemberRejected": "所选仓库之一在此工作区中已不可用。",
-  "repositorySetsSaveFailed": "无法保存该仓库集。请重试。"
+  "repositorySetsSaveFailed": "无法保存该仓库集。请重试。",
+  "repositorySetsAlreadyDeleted": "该仓库集已被删除。请刷新以查看当前列表。",
+  "repositorySetsDeleteFailed": "无法删除该仓库集。请重试。"
 }

@@ -208,9 +208,9 @@ func TestReplaceRepositorySetItemsRewritesOrderContiguously(t *testing.T) {
 	}
 
 	// Reorder and drop one member in a single replace.
-	err := repo.ReplaceRepositorySetItems(ctx, set.ID, []string{"repo-orders", "repo-web"})
-	if err != nil {
-		t.Fatalf("ReplaceRepositorySetItems: %v", err)
+	members := []string{"repo-orders", "repo-web"}
+	if err := repo.UpdateRepositorySet(ctx, set, &members); err != nil {
+		t.Fatalf("UpdateRepositorySet: %v", err)
 	}
 
 	loaded, err := repo.GetRepositorySet(ctx, set.ID)
@@ -324,7 +324,7 @@ func TestUpdateRepositorySetChangesNameAndDescription(t *testing.T) {
 
 	set.Name = "Backend only"
 	set.Description = "gateway + orders"
-	if err := repo.UpdateRepositorySet(ctx, set); err != nil {
+	if err := repo.UpdateRepositorySet(ctx, set, nil); err != nil {
 		t.Fatalf("UpdateRepositorySet: %v", err)
 	}
 

@@ -219,12 +219,52 @@ func (r *Repository) listRepositorySetItems(
 	return itemsBySet, rows.Err()
 }
 
-// UpdateRepositorySet writes the set's own fields. Membership is replaced
-// separately through ReplaceRepositorySetItems, so an update that does not
-// supply members leaves them untouched.
-func (r *Repository) UpdateRepositorySet(ctx context.Context, set *models.RepositorySet) error {
+// ListRepositorySetIDsByRepository returns the sets that currently hold a
+// repository. Callers use it to capture the affected sets *before* a repository
+// deletion prunes their membership, so they can publish the post-delete shape.
+func (r *Repository) ListRepositorySetIDsByRepository(
+	ctx context.Context,
+	repositoryID string,
+) ([]string, error) {
+	rows, err := r.ro.QueryContext(ctx, r.ro.Rebind(
+		`SELECT repository_set_id FROM repository_set_items WHERE repository_id = ?`), repositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// UpdateRepositorySet writes the set's own fields and, when repositoryIDs is
+// non-nil, replaces its whole membership in the SAME transaction.
+//
+// The two must commit together: a name change that lands while the membership
+// replacement fails leaves the set renamed but still holding the old
+// repositories, with the API reporting failure and publishing nothing. A nil
+// repositoryIDs leaves membership untouched, which is how an update that only
+// changes name or description is expressed.
+func (r *Repository) UpdateRepositorySet(
+	ctx context.Context,
+	set *models.RepositorySet,
+	repositoryIDs *[]string,
+) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	set.UpdatedAt = time.Now().UTC()
-	result, err := r.db.ExecContext(ctx, r.db.Rebind(`
+	result, err := tx.ExecContext(ctx, r.db.Rebind(`
 		UPDATE repository_sets SET name = ?, description = ?, updated_at = ? WHERE id = ?
 	`), set.Name, set.Description, set.UpdatedAt, set.ID)
 	if err != nil {
@@ -234,26 +274,30 @@ func (r *Repository) UpdateRepositorySet(ctx context.Context, set *models.Reposi
 	if err != nil {
 		return err
 	}
+	// A set deleted between the service's read and this write must not be
+	// resurrected, nor reported as updated.
 	if affected == 0 {
 		return repoerrors.ErrRepositorySetNotFound
 	}
-	return nil
+
+	if repositoryIDs != nil {
+		if err := r.replaceItemsTx(ctx, tx, set.ID, *repositoryIDs, set.UpdatedAt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
-// ReplaceRepositorySetItems rewrites a set's whole membership in one
-// transaction, which is also how reordering is expressed. Positions come out
-// contiguous from zero in the order supplied.
-func (r *Repository) ReplaceRepositorySetItems(
+// replaceItemsTx rewrites a set's whole membership inside an existing
+// transaction. Positions come out contiguous from zero in the order supplied,
+// which is also how reordering is expressed.
+func (r *Repository) replaceItemsTx(
 	ctx context.Context,
+	tx *sqlx.Tx,
 	setID string,
 	repositoryIDs []string,
+	now time.Time,
 ) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	if _, err := tx.ExecContext(ctx, r.db.Rebind(
 		`DELETE FROM repository_set_items WHERE repository_set_id = ?`), setID); err != nil {
 		return err
@@ -262,15 +306,7 @@ func (r *Repository) ReplaceRepositorySetItems(
 	for _, repositoryID := range repositoryIDs {
 		items = append(items, models.RepositorySetItem{RepositoryID: repositoryID})
 	}
-	now := time.Now().UTC()
-	if err := r.insertRepositorySetItems(ctx, tx, setID, items, now); err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, r.db.Rebind(
-		`UPDATE repository_sets SET updated_at = ? WHERE id = ?`), now, setID); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return r.insertRepositorySetItems(ctx, tx, setID, items, now)
 }
 
 // DeleteRepositorySet removes a set and, by cascade, its membership rows. It

@@ -128,6 +128,37 @@ func TestBootPayloadHydratesRepositorySets(t *testing.T) {
 	}
 }
 
+// TestBootPayloadDoesNotMarkAFailedRepositorySetLoadAsLoaded pins the error path.
+// `useRepositorySets` skips its fallback request when the workspace reports as
+// loaded, so marking a failed load as loaded hides the workspace's real sets
+// until an explicit refresh.
+func TestBootPayloadDoesNotMarkAFailedRepositorySetLoadAsLoaded(t *testing.T) {
+	harness := newBootStateTestHarness(t)
+	workspace := bootActiveWorkspace(t, harness)
+
+	// Drop the table so ListRepositorySets fails the way a real query error would.
+	if _, err := harness.db.Exec(`DROP TABLE repository_set_items`); err != nil {
+		t.Fatalf("drop items table: %v", err)
+	}
+	if _, err := harness.db.Exec(`DROP TABLE repository_sets`); err != nil {
+		t.Fatalf("drop sets table: %v", err)
+	}
+
+	for _, routePath := range []string{"/tasks", "/"} {
+		t.Run(routePath, func(t *testing.T) {
+			decoded := decodeBootRepositorySets(t, harness, routePath)
+			// Boot still succeeds: the failure is non-fatal.
+			items, present := decoded.InitialState.RepositorySets.ItemsByWorkspaceID[workspace.ID]
+			if !present || len(items) != 0 {
+				t.Fatalf("items = %+v, want an empty list", items)
+			}
+			if decoded.InitialState.RepositorySets.LoadedByWorkspaceID[workspace.ID] {
+				t.Fatal("a failed load is marked loaded, so the client will never retry")
+			}
+		})
+	}
+}
+
 // TestBootPayloadRepositorySetsShapeIsAlwaysPresent covers a workspace with no
 // sets. An absent key reads as "not loaded" to the client hook, which then
 // refetches on every dialog open even though boot already answered.

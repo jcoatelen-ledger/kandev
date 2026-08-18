@@ -411,11 +411,13 @@ type RepositorySetRepository interface {
 	// nil, nil when it is unused, leaving the conflict decision to the caller.
 	GetRepositorySetByName(ctx context.Context, workspaceID, name string) (*models.RepositorySet, error)
 	ListRepositorySets(ctx context.Context, workspaceID string) ([]*models.RepositorySet, error)
-	// UpdateRepositorySet writes the set's own fields only; membership goes
-	// through ReplaceRepositorySetItems so an update that omits members leaves
-	// them untouched.
-	UpdateRepositorySet(ctx context.Context, set *models.RepositorySet) error
-	ReplaceRepositorySetItems(ctx context.Context, setID string, repositoryIDs []string) error
+	// ListRepositorySetIDsByRepository reports which sets hold a repository, so a
+	// caller can publish their new shape after a deletion prunes membership.
+	ListRepositorySetIDsByRepository(ctx context.Context, repositoryID string) ([]string, error)
+	// UpdateRepositorySet writes the set's fields and, when repositoryIDs is
+	// non-nil, replaces its whole membership in the same transaction so the two
+	// cannot land apart. A nil repositoryIDs leaves membership untouched.
+	UpdateRepositorySet(ctx context.Context, set *models.RepositorySet, repositoryIDs *[]string) error
 	DeleteRepositorySet(ctx context.Context, id string) (bool, error)
 }
 

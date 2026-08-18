@@ -131,7 +131,6 @@ describe("applyRepositorySet", () => {
 
     expect(idsOf(second.rows)).toEqual([REPO_WEB, REPO_GATEWAY, REPO_ORDERS]);
   });
-
 });
 
 describe("applyRepositorySet with unavailable members", () => {
@@ -214,9 +213,7 @@ describe("selectedRepositoryIdsForSet", () => {
   });
 
   it("ignores blank rows", () => {
-    expect(selectedRepositoryIdsForSet([row(ROW_0), row("row-1", REPO_WEB)])).toEqual([
-      REPO_WEB,
-    ]);
+    expect(selectedRepositoryIdsForSet([row(ROW_0), row("row-1", REPO_WEB)])).toEqual([REPO_WEB]);
   });
 
   it("ignores discovered local-path rows, which are not workspace repositories", () => {

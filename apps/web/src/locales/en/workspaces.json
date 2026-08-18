@@ -149,5 +149,7 @@
   "repositorySetsSave": "Save set",
   "repositorySetsNameTaken": "A set with this name already exists in this workspace.",
   "repositorySetsMemberRejected": "One of the chosen repositories is no longer available in this workspace.",
-  "repositorySetsSaveFailed": "Could not save the set. Try again."
+  "repositorySetsSaveFailed": "Could not save the set. Try again.",
+  "repositorySetsAlreadyDeleted": "This set was already deleted. Refresh to see the current list.",
+  "repositorySetsDeleteFailed": "Could not delete the set. Try again."
 }

@@ -149,5 +149,7 @@
   "repositorySetsSave": "Śàvē śēţ",
   "repositorySetsNameTaken": "À śēţ ŵĩţĥ ţĥĩś ńàḿē àĺŕēàďŷ ēxĩśţś ĩń ţĥĩś ŵōŕķśƥàćē.",
   "repositorySetsMemberRejected": "Ōńē ōƒ ţĥē ćĥōśēń ŕēƥōśĩţōŕĩēś ĩś ńō ĺōńĝēŕ àvàĩĺàƀĺē ĩń ţĥĩś ŵōŕķśƥàćē.",
-  "repositorySetsSaveFailed": "Ćōũĺď ńōţ śàvē ţĥē śēţ. Ţŕŷ àĝàĩń."
+  "repositorySetsSaveFailed": "Ćōũĺď ńōţ śàvē ţĥē śēţ. Ţŕŷ àĝàĩń.",
+  "repositorySetsAlreadyDeleted": "Ţĥĩś śēţ ŵàś àĺŕēàďŷ ďēĺēţēď. Ŕēƒŕēśĥ ţō śēē ţĥē ćũŕŕēńţ ĺĩśţ.",
+  "repositorySetsDeleteFailed": "Ćōũĺď ńōţ ďēĺēţē ţĥē śēţ. Ţŕŷ àĝàĩń."
 }

@@ -95,16 +95,18 @@ export function useWorkspaceRepositorySets({ workspaceId }: { workspaceId: strin
 
   const confirmDelete = useCallback(async () => {
     if (!deleting) return;
+    setError(null);
     try {
       await deleteRepositorySet(deleting.id);
       removeRepositorySet(workspaceId, deleting.id);
-    } catch {
-      // The event stream and the next list read are the recovery path; leaving
-      // the set in place is more honest than removing it optimistically.
-    } finally {
       setDeleting(null);
+    } catch (caught) {
+      // The row stays, so silence would read as "the list is stale" and invite a
+      // retry against a set that may already be gone. Keep the dialog open with
+      // the reason.
+      setError(deleteErrorMessage(caught, t));
     }
-  }, [deleting, workspaceId, removeRepositorySet]);
+  }, [deleting, workspaceId, removeRepositorySet, t]);
 
   return {
     draft,
@@ -134,6 +136,14 @@ function editorErrorMessage(caught: unknown, t: (key: string) => string): string
     return apiErrorBodyMessage(caught) ?? t("workspaces:repositorySetsMemberRejected");
   }
   return t("workspaces:repositorySetsSaveFailed");
+}
+
+/** A set already deleted elsewhere is not a failure the user must act on. */
+function deleteErrorMessage(caught: unknown, t: (key: string) => string): string {
+  if (caught instanceof ApiError && caught.status === 404) {
+    return t("workspaces:repositorySetsAlreadyDeleted");
+  }
+  return t("workspaces:repositorySetsDeleteFailed");
 }
 
 function apiErrorBodyMessage(caught: ApiError): string | null {

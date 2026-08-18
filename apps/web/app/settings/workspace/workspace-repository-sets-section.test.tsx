@@ -111,7 +111,10 @@ describe("WorkspaceRepositorySetsSection", () => {
       description: "",
       repositoryIds: [REPO_GATEWAY],
     });
-    expect(mockUpsert).toHaveBeenCalledWith("ws-1", repositorySet("set-2", "Backend", [REPO_GATEWAY]));
+    expect(mockUpsert).toHaveBeenCalledWith(
+      "ws-1",
+      repositorySet("set-2", "Backend", [REPO_GATEWAY]),
+    );
   });
 
   it("keeps save unavailable until the editor has a name and a member", () => {

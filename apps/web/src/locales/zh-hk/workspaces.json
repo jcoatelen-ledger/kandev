@@ -149,5 +149,7 @@
   "repositorySetsSave": "儲存",
   "repositorySetsNameTaken": "此工作區中已存在同名的儲存庫集。",
   "repositorySetsMemberRejected": "所選儲存庫之一在此工作區中已不可用。",
-  "repositorySetsSaveFailed": "無法儲存該儲存庫集。請重試。"
+  "repositorySetsSaveFailed": "無法儲存該儲存庫集。請重試。",
+  "repositorySetsAlreadyDeleted": "該儲存庫集已被刪除。請刷新以查看目前列表。",
+  "repositorySetsDeleteFailed": "無法刪除該儲存庫集。請重試。"
 }

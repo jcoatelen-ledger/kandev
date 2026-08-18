@@ -16,6 +16,8 @@ import type { RepositorySet } from "@/lib/types/http";
 
 type RepositorySetDeleteDialogProps = {
   set: RepositorySet | null;
+  /** Non-null when the last delete attempt failed; keeps the dialog open. */
+  error: string | null;
   onClose: () => void;
   onConfirm: () => void;
 };
@@ -27,6 +29,7 @@ type RepositorySetDeleteDialogProps = {
  */
 export function RepositorySetDeleteDialog({
   set,
+  error,
   onClose,
   onConfirm,
 }: RepositorySetDeleteDialogProps) {
@@ -44,6 +47,11 @@ export function RepositorySetDeleteDialog({
             {t("workspaces:repositorySetsDeleteDescription")}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error ? (
+          <p className="text-xs text-destructive" data-testid="repository-set-delete-error">
+            {error}
+          </p>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel className="cursor-pointer">{t("common:cancel")}</AlertDialogCancel>
           <AlertDialogAction

@@ -32,6 +32,12 @@ export type RepositorySetsState = {
   itemsByWorkspaceId: Record<string, RepositorySet[]>;
   loadingByWorkspaceId: Record<string, boolean>;
   loadedByWorkspaceId: Record<string, boolean>;
+  /**
+   * Bumped by every `repository_set.*` event for a workspace. A list response
+   * captured before an event must not be applied after it, or the response
+   * resurrects a deleted set or restores stale membership.
+   */
+  revisionByWorkspaceId: Record<string, number>;
 };
 
 export type RepositoryBranchesState = {
@@ -75,7 +81,16 @@ export type WorkspaceSliceActions = {
   setRepositoryScriptsLoading: (repositoryId: string, loading: boolean) => void;
   clearRepositoryScripts: (repositoryId: string) => void;
   invalidateRepositories: (workspaceId: string) => void;
-  setRepositorySets: (workspaceId: string, sets: RepositorySet[]) => void;
+  /**
+   * Applies a list response. `expectedRevision` is the value read before the
+   * request; a mismatch means a WebSocket event landed meanwhile and the
+   * response is stale, so it is dropped.
+   */
+  setRepositorySets: (
+    workspaceId: string,
+    sets: RepositorySet[],
+    expectedRevision?: number,
+  ) => void;
   setRepositorySetsLoading: (workspaceId: string, loading: boolean) => void;
   upsertRepositorySet: (workspaceId: string, set: RepositorySet) => void;
   removeRepositorySet: (workspaceId: string, setId: string) => void;

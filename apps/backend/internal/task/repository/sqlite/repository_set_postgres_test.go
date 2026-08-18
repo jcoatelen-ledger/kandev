@@ -58,8 +58,9 @@ func TestPostgresRepositorySetRoundTrip(t *testing.T) {
 		t.Fatalf("GetRepositorySetByName = %+v", byName)
 	}
 
-	if err := repo.ReplaceRepositorySetItems(ctx, set.ID, []string{"repo-pg-web"}); err != nil {
-		t.Fatalf("ReplaceRepositorySetItems: %v", err)
+	pgMembers := []string{"repo-pg-web"}
+	if err := repo.UpdateRepositorySet(ctx, set, &pgMembers); err != nil {
+		t.Fatalf("UpdateRepositorySet: %v", err)
 	}
 	sets, err := repo.ListRepositorySets(ctx, "ws-pg-sets")
 	if err != nil {

@@ -88,8 +88,10 @@ Two new tables, both workspace-owned.
 | `description`              | Optional free text, defaults to empty.                            |
 | `created_at`, `updated_at` | Audit timestamps.                                                 |
 
-`(workspace_id, name)` is unique in the database. Case-insensitive collisions are rejected by the
-service, so the database constraint is the concurrency backstop rather than the only check.
+`(workspace_id, name)` is unique in the database, and a second unique index on
+`(workspace_id, LOWER(name))` makes that backstop case-insensitive too. The service rejects a
+case-insensitive collision with a message naming the existing set; the index is what stops two
+concurrent creates of `Full-stack` and `full-stack` from both landing.
 
 `repository_set_items`
 
@@ -186,17 +188,20 @@ collection, so the task-creation dialog can offer sets on first paint without a 
 | A `repository_id` is unknown, deleted, or in another workspace | `422` listing the offending ids, no write                       |
 | Repository listing fails while building the boot payload      | Boot succeeds with an empty set list; the dialog fetches instead |
 | A set's members were all deleted                              | The set lists as empty and cannot be applied; it is not removed  |
-| Applying a set while the executor forbids multi-repository    | The control is disabled with the reason; the form is unchanged   |
+| Applying a set on an executor that forbids multi-repository    | The set applies; the executor picker marks that profile unavailable |
 
-Writes are atomic: name, description, and membership of one request either all land or none do.
+Writes are atomic: name, description, and membership of one request either all land or none do,
+because the store applies both halves in a single transaction. A set deleted between the read and
+the write is reported as not found rather than resurrected.
 
 ## Persistence guarantees
 
 - A created or updated set is durable before the response returns, and its membership positions are
   contiguous from zero in the order requested.
 - Deleting a workspace deletes its sets and memberships. Deleting a set deletes its memberships and
-  leaves every repository untouched. Deleting a repository removes it from every set and leaves the
-  sets themselves intact.
+  leaves every repository untouched. Deleting a repository removes it from every set, leaves the
+  sets themselves intact, and publishes each affected set's new shape so open clients stop offering
+  the deleted member.
 - Applying a set writes nothing. The repositories that reach `task_repositories` are whatever the
   form holds at submit, so a set applied and then edited persists the edited selection.
 - Sets survive backup and restore with the rest of the workspace schema, and the schema

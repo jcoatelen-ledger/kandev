@@ -47,9 +47,9 @@ test.describe("Workspace repository sets settings", () => {
       })
       .toBe(2);
 
-    const createdId = (await apiClient.listRepositorySets(seedData.workspaceId)).repository_sets.find(
-      (entry) => entry.name === setName,
-    )!.id;
+    const createdId = (
+      await apiClient.listRepositorySets(seedData.workspaceId)
+    ).repository_sets.find((entry) => entry.name === setName)!.id;
 
     // Edit: drop one member. A supplied membership replaces the whole list.
     await testPage.getByTestId(`repository-set-edit-${createdId}`).click();

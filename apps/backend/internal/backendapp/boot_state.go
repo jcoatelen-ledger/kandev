@@ -380,13 +380,17 @@ func (b bootStateBuilder) addRepositoriesState(ctx context.Context, state map[st
 // repository sets, so the create dialog can offer them without a fetch.
 func (b bootStateBuilder) addRepositorySetsState(ctx context.Context, state map[string]any, workspaceID string) {
 	items := repositorySetsToDTOs(nil)
+	loaded := false
 	sets, err := b.p.taskSvc.ListRepositorySets(ctx, workspaceID)
 	if err != nil {
+		// Not loaded, so the client's hook still fetches; see
+		// repositorySetsForState.
 		b.logBootError("list home repository sets", err)
 	} else {
 		items = repositorySetsToDTOs(sets)
+		loaded = true
 	}
-	state["repositorySets"] = repositorySetsState(workspaceID, items)
+	state["repositorySets"] = repositorySetsState(workspaceID, items, loaded)
 }
 
 func (b bootStateBuilder) addQuickChatState(

@@ -151,7 +151,9 @@ function MemberPicker({ repositories, selectedIds, onChange }: MemberPickerProps
               repositoryId={id}
               checked={selected.includes(id)}
               canMoveUp={selected.indexOf(id) > 0}
-              canMoveDown={selected.indexOf(id) !== -1 && selected.indexOf(id) < selected.length - 1}
+              canMoveDown={
+                selected.indexOf(id) !== -1 && selected.indexOf(id) < selected.length - 1
+              }
               onToggle={() => toggle(id)}
               onMoveUp={() => move(id, -1)}
               onMoveDown={() => move(id, 1)}

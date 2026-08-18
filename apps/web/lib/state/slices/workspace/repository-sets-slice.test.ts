@@ -22,7 +22,10 @@ function set(id: string, name: string, repositoryIds: string[]): RepositorySet {
     workspace_id: workspaceId("ws-1"),
     name,
     description: "",
-    repositories: repositoryIds.map((id, position) => ({ repository_id: repositoryId(id), position })),
+    repositories: repositoryIds.map((id, position) => ({
+      repository_id: repositoryId(id),
+      position,
+    })),
     created_at: "2026-08-17T09:00:00Z",
     updated_at: "2026-08-17T09:00:00Z",
   };

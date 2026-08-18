@@ -590,11 +590,13 @@ export function WorkspaceRepositoriesClient({
           rather than on a tab of their own. */}
       <WorkspaceRepositorySetsSection
         workspaceId={workspace.id}
-        repositories={repositoryItems}
+        // Only persisted repositories: repositoryItems also carries unsaved
+        // draft rows whose `temp-repo-` ids do not exist server-side, and the
+        // member picker promises "this workspace's live repositories".
+        repositories={repositories}
         readOnly={isImproveWorkspace}
       />
       {!isImproveWorkspace && <AddLocalRepositoryDialog state={state} />}
     </div>
   );
 }
-
