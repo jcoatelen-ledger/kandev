@@ -255,13 +255,7 @@ function WorkspaceSection({
         onRowRepositoryChange={handlers.handleRowRepositoryChange}
         onRowBranchChange={handlers.handleRowBranchChange}
         onToggleRemote={handlers.handleToggleRemote}
-        repositorySets={{
-          sets,
-          // The subtask form does not pick an executor, so there is no
-          // single-repository executor to guard against here.
-          disabledReason: null,
-          onApply: onApplyRepositorySet,
-        }}
+        repositorySets={{ sets, onApply: onApplyRepositorySet }}
       />
     </>
   );

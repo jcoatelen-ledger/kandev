@@ -61,9 +61,11 @@ per-task decision and are never stored in a set.
   otherwise the first set could never be defined from the flow that just chose the repositories.
 - The control is absent in **Remote URL** and **No repository** source modes, where workspace
   repositories are not what is being selected.
-- When the chosen executor cannot run a multi-repository task, the control is disabled and states
-  the reason in visible text rather than a hover-only tooltip, matching how **add repository** is
-  already constrained.
+- The control is never disabled by executor capability. **Add repository** beside it is not
+  executor-gated either: the repository selection is what constrains which executor profiles stay
+  selectable, and the executor picker already marks an incompatible profile unavailable with its
+  reason. Applying a set on a single-repository executor therefore behaves exactly like adding the
+  same rows by hand.
 - Applying a set changes only the form. No task, repository, or set is modified, and nothing is
   persisted until the task is created.
 

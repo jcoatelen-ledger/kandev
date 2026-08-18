@@ -71,8 +71,6 @@ type RepoChipsRowProps = {
    */
   repositorySets?: {
     sets: RepositorySet[];
-    /** Non-null when sets cannot be applied, e.g. a single-repository executor. */
-    disabledReason: string | null;
     onApply: (set: RepositorySet) => void;
     /** Present when the current selection can be saved as a new set. */
     save?: {
@@ -221,7 +219,6 @@ function RepositorySetsSurface({
         repositories={repositories}
         rows={rows}
         onApply={repositorySets.onApply}
-        disabledReason={repositorySets.disabledReason}
         footerActions={
           save ? <SaveRepositorySetMenuAction onSelect={() => save.setOpen(true)} /> : null
         }

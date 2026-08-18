@@ -14,7 +14,6 @@ import { useToast } from "@/components/toast-provider";
 import { useRepositorySets } from "@/hooks/domains/workspace/use-repository-sets";
 import { useApplyRepositorySet } from "@/components/task-create-dialog-repository-sets-apply";
 import { selectedRepositoryIdsForSet } from "@/components/task-create-dialog-repository-sets";
-import { getMultiRepoExecutorDisabledReason } from "@/components/task-create-dialog-multi-repo-guard";
 import { useAppStore } from "@/components/state-provider";
 import {
   useDialogFormState,
@@ -330,7 +329,6 @@ export function useTaskCreateDialogSetup(
     rows: fs.repositories,
     repositories,
     setRepositories: fs.setRepositories,
-    executorType: computed.selectedExecutorType,
     userSettingsLoaded,
   });
   return {
@@ -368,7 +366,6 @@ type RepositorySetsForDialogArgs = {
   rows: DialogFormState["repositories"];
   repositories: Repository[];
   setRepositories: DialogFormState["setRepositories"];
-  executorType: string | null;
   userSettingsLoaded: boolean;
 };
 
@@ -386,7 +383,6 @@ function useRepositorySetsForDialog({
   rows,
   repositories,
   setRepositories,
-  executorType,
   userSettingsLoaded,
 }: RepositorySetsForDialogArgs) {
   const { sets } = useRepositorySets(workspaceId, open);
@@ -398,11 +394,9 @@ function useRepositorySetsForDialog({
   if (!userSettingsLoaded) return undefined;
   return {
     sets,
-    // A set always means several repositories, so a single-repository executor
-    // cannot honor one. Same reason and wording as the add-repository control.
-    disabledReason: getMultiRepoExecutorDisabledReason(executorType),
     onApply,
-    save: canSave && workspaceId ? { workspaceId, rows, open: saveOpen, setOpen: setSaveOpen } : null,
+    save:
+      canSave && workspaceId ? { workspaceId, rows, open: saveOpen, setOpen: setSaveOpen } : null,
   };
 }
 

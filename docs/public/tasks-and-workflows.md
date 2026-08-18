@@ -202,8 +202,9 @@ current. See [WebSocket API](websocket-api.md).
 Sets are workspace-scoped and shared: everyone who can see the workspace sees and can apply its sets.
 A set name is unique within its workspace, compared case-insensitively. Deleting a set removes the
 grouping only, never a repository; deleting a repository removes it from every set and leaves the sets
-themselves in place. Sets are not offered in **Remote** or **None** source mode, and are unavailable
-on an executor that cannot run a multi-repository task, which states the reason next to the control.
+themselves in place. Sets are not offered in **Remote** or **None** source mode. On an executor that
+cannot run a multi-repository task the control still works; the executor picker marks that profile
+unavailable once several repositories are selected, exactly as when you add the rows by hand.
 
 </details>
 

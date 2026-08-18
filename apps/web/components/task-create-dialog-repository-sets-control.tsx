@@ -22,12 +22,6 @@ type RepositorySetsControlProps = {
   repositories: Repository[];
   rows: TaskRepoRow[];
   onApply: (set: RepositorySet) => void;
-  /**
-   * Why sets cannot be applied right now, or null when they can. Rendered as
-   * visible text next to the disabled trigger rather than in a tooltip, because a
-   * touch device never surfaces a hover tooltip.
-   */
-  disabledReason: string | null;
   /** Extra actions appended under the set list, e.g. "Save as set". */
   footerActions?: ReactNode;
 };
@@ -39,13 +33,19 @@ type RepositorySetsControlProps = {
  * Rendered as a Radix DropdownMenu on purpose. Those already get inset,
  * safe-area-aware bottom-sheet treatment below 640px, so the phone presentation
  * comes from the shared primitive rather than a parallel mobile menu.
+ *
+ * Deliberately never disabled by executor capability. "Add repository" beside it
+ * is not executor-gated either: the repository selection is what constrains which
+ * executor profiles stay selectable, not the reverse. Gating this control instead
+ * wedged a full sentence into an already crowded row, and it did not even hold -
+ * DropdownMenuTrigger owns its own pointer handlers, so `disabled` on the inner
+ * button greyed it without stopping the menu from opening.
  */
 export function RepositorySetsControl({
   sets,
   repositories,
   rows,
   onApply,
-  disabledReason,
   footerActions,
 }: RepositorySetsControlProps) {
   const { t } = useTranslation();
@@ -54,39 +54,31 @@ export function RepositorySetsControl({
   if (sets.length === 0 && !footerActions) return null;
 
   return (
-    <div className="inline-flex items-center gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={Boolean(disabledReason)}
-            aria-label={t("task:repositorySetsApplyLabel")}
-            data-testid="repository-sets-trigger"
-            className={cn(
-              "inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground",
-              disabledReason
-                ? "cursor-not-allowed opacity-40"
-                : "cursor-pointer hover:bg-muted hover:text-foreground",
-            )}
-          >
-            <IconStack2 className="h-3.5 w-3.5" />
-            <span>{t("task:repositorySetsTrigger")}</span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-72">
-          <RepositorySetMenuItems
-            sets={sets}
-            repositories={repositories}
-            rows={rows}
-            onApply={onApply}
-            footerActions={footerActions}
-          />
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {disabledReason ? (
-        <span className="text-xs text-muted-foreground">{disabledReason}</span>
-      ) : null}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={t("task:repositorySetsApplyLabel")}
+          data-testid="repository-sets-trigger"
+          className={cn(
+            "inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-2 text-xs",
+            "cursor-pointer text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <IconStack2 className="h-3.5 w-3.5" />
+          <span>{t("task:repositorySetsTrigger")}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-72">
+        <RepositorySetMenuItems
+          sets={sets}
+          repositories={repositories}
+          rows={rows}
+          onApply={onApply}
+          footerActions={footerActions}
+        />
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

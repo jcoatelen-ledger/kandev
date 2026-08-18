@@ -92,7 +92,6 @@ describe("RepositorySetsControl trigger", () => {
         repositories={AVAILABLE}
         rows={[PLACEHOLDER_ROW]}
         onApply={vi.fn()}
-        disabledReason={null}
       />,
     );
     expect(screen.queryByTestId(TRIGGER_TESTID)).toBeNull();
@@ -105,45 +104,44 @@ describe("RepositorySetsControl trigger", () => {
         repositories={AVAILABLE}
         rows={[PLACEHOLDER_ROW]}
         onApply={vi.fn()}
-        disabledReason={null}
         footerActions={<span>save as set</span>}
       />,
     );
     expect(screen.queryByTestId(TRIGGER_TESTID)).not.toBeNull();
   });
 
-  it("disables the trigger and shows the reason as visible text", () => {
-    const reason = "This executor cannot run multiple repositories";
+  it("never disables itself on executor capability", () => {
+    // "Add repository" is not executor-gated either: the repository selection
+    // constrains which executor profiles are offered, not the reverse. Disabling
+    // this control instead wedged a long sentence into the chip row, and Radix
+    // kept the menu openable anyway because DropdownMenuTrigger owns its own
+    // pointer handlers.
     render(
       <RepositorySetsControl
         sets={SETS}
         repositories={AVAILABLE}
         rows={[PLACEHOLDER_ROW]}
         onApply={vi.fn()}
-        disabledReason={reason}
-      />,
-    );
-
-    const trigger = screen.getByTestId(TRIGGER_TESTID) as HTMLButtonElement;
-    expect(trigger.disabled).toBe(true);
-    // Visible text, not a hover-only tooltip: on a touch device a tooltip is
-    // unreachable.
-    expect(screen.queryByText(reason)).not.toBeNull();
-  });
-
-  it("leaves the trigger enabled when sets can be applied", () => {
-    render(
-      <RepositorySetsControl
-        sets={SETS}
-        repositories={AVAILABLE}
-        rows={[PLACEHOLDER_ROW]}
-        onApply={vi.fn()}
-        disabledReason={null}
       />,
     );
 
     const trigger = screen.getByTestId(TRIGGER_TESTID) as HTMLButtonElement;
     expect(trigger.disabled).toBe(false);
+  });
+
+  it("renders only the trigger, with no explanatory sentence beside it", () => {
+    const { container } = render(
+      <RepositorySetsControl
+        sets={SETS}
+        repositories={AVAILABLE}
+        rows={[PLACEHOLDER_ROW]}
+        onApply={vi.fn()}
+      />,
+    );
+
+    // The chip row is crowded; the control contributes its own label and nothing
+    // else.
+    expect(container.textContent?.trim()).toBe("Sets");
   });
 });
 

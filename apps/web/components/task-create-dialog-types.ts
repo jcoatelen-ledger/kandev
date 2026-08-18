@@ -220,11 +220,6 @@ export type DialogComputedValues = {
   effectiveAgentProfileId: string;
   /** Display name of the currently selected executor profile (null if none). */
   selectedExecutorProfileName: string | null;
-  /**
-   * Executor type of the selected profile (null if none). Read by capability
-   * checks such as the multi-repository guard.
-   */
-  selectedExecutorType: string | null;
   /** True when an executor profile is selected and no agent profile is compatible with it. */
   noCompatibleAgent: boolean;
   /** Subset of agent profiles that pass the executor's auth-credential check. See `StoreSelections.compatibleAgentProfiles`. */
@@ -550,7 +545,6 @@ export type DialogFormBodyProps = {
   /** Repository sets available in this workspace, and how to apply or define one. */
   repositorySets?: {
     sets: RepositorySet[];
-    disabledReason: string | null;
     onApply: (set: RepositorySet) => void;
     /**
      * Present when the current selection can be saved as a new set. Null when
