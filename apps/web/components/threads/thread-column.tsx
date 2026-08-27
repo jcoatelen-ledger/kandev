@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { IconArrowsMaximize, IconMessageQuestion } from "@tabler/icons-react";
 import { Badge } from "@kandev/ui/badge";
 import { Button } from "@kandev/ui/button";
@@ -60,24 +61,50 @@ function ThreadMeta({ thread, status }: { thread: ActiveThread; status: ThreadSt
   );
 }
 
+/**
+ * Brings a deep-linked column into view once.
+ *
+ * The effect is keyed on `isFocused` alone, and the column is keyed by task id,
+ * so a column that only mounts when a later snapshot lands still scrolls, while
+ * a column that merely re-renders with fresh messages does not yank the deck
+ * back under the reader.
+ */
+function useScrollWhenFocused(isFocused: boolean) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!isFocused) return;
+    ref.current?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [isFocused]);
+  return ref;
+}
+
 export function ThreadColumn({
   thread,
+  isFocused = false,
   onOpenTask,
 }: {
   thread: ActiveThread;
+  isFocused?: boolean;
   onOpenTask: (taskId: string) => void;
 }) {
   const { t } = useTranslation();
   const status = resolveThreadStatus(thread);
+  const ref = useScrollWhenFocused(isFocused);
 
   return (
     <section
+      ref={ref}
       data-testid={`thread-column-${thread.taskId}`}
+      data-focused={isFocused ? "true" : undefined}
       aria-label={t("threads:columnLabel", { title: thread.title })}
       // Phone: one column fills the viewport and snaps, so the deck is paged
-      // instead of pinch-scrolled. Desktop: a fixed column width, which is what
-      // makes several threads readable side by side at all.
-      className="flex h-full min-h-0 w-[85vw] shrink-0 snap-start flex-col overflow-hidden rounded-lg border bg-card sm:w-[380px]"
+      // instead of pinch-scrolled.
+      //
+      // Desktop: columns share the width rather than taking a fixed slice, so
+      // two threads fill the board instead of leaving it mostly empty. The min
+      // width is the floor they stop shrinking at, which is what turns a busy
+      // deck into a horizontal scroll rather than a row of slivers.
+      className="flex h-full min-h-0 w-[85vw] shrink-0 snap-start flex-col overflow-hidden rounded-lg border bg-card data-[focused=true]:ring-2 data-[focused=true]:ring-primary sm:w-auto sm:min-w-[360px] sm:flex-1 sm:shrink"
     >
       <header className="flex flex-col gap-1 border-b px-3 py-2">
         <div className="flex items-start gap-2">

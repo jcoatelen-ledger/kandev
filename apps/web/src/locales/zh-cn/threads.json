@@ -3,6 +3,7 @@
   "emptyBody": "对话流把所有正在运行的智能体并排展示。在某个任务上启动智能体，它的对话就会作为一列出现在这里。",
   "emptyTitle": "当前没有智能体在工作",
   "loading": "正在加载对话...",
+  "openInThreads": "在对话流中打开",
   "openTask": "打开任务",
   "queuedPromptCount_one": "{{count}} 条排队指令",
   "queuedPromptCount_other": "{{count}} 条排队指令",

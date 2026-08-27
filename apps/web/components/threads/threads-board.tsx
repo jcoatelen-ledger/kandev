@@ -8,6 +8,8 @@ import { ThreadColumn } from "./thread-column";
 type ThreadsBoardProps = {
   threads: ActiveThread[];
   isLoading?: boolean;
+  /** Column a deep link asked for; scrolled into view and ringed on arrival. */
+  focusedTaskId?: string | null;
   onOpenTask: (taskId: string) => void;
 };
 
@@ -49,7 +51,12 @@ function ThreadsLoadingState() {
  * horizontally. Columns keep the order the selector gave them, so a thread the
  * reader is following does not jump while they read it.
  */
-export function ThreadsBoard({ threads, isLoading = false, onOpenTask }: ThreadsBoardProps) {
+export function ThreadsBoard({
+  threads,
+  isLoading = false,
+  focusedTaskId = null,
+  onOpenTask,
+}: ThreadsBoardProps) {
   if (threads.length === 0) {
     return isLoading ? <ThreadsLoadingState /> : <ThreadsEmptyState />;
   }
@@ -60,7 +67,12 @@ export function ThreadsBoard({ threads, isLoading = false, onOpenTask }: Threads
       className="flex h-full min-h-0 w-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden p-3 sm:snap-none"
     >
       {threads.map((thread) => (
-        <ThreadColumn key={thread.taskId} thread={thread} onOpenTask={onOpenTask} />
+        <ThreadColumn
+          key={thread.taskId}
+          thread={thread}
+          isFocused={thread.taskId === focusedTaskId}
+          onOpenTask={onOpenTask}
+        />
       ))}
     </div>
   );

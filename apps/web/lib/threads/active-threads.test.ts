@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { KanbanState, WorkflowSnapshotData } from "@/lib/state/slices/kanban/types";
-import { selectActiveThreads } from "./active-threads";
+import {
+  isActiveThreadSession,
+  resolveFocusedThreadId,
+  selectActiveThreads,
+  type ActiveThread,
+} from "./active-threads";
 
 type TaskOverrides = Partial<KanbanState["tasks"][number]> & { id: string };
 
@@ -11,6 +16,22 @@ function task(overrides: TaskOverrides): KanbanState["tasks"][number] {
     title: `Task ${overrides.id}`,
     position: 0,
     updatedAt: "2026-08-27T10:00:00Z",
+    ...overrides,
+  };
+}
+
+function thread(overrides: Partial<ActiveThread> & { taskId: string }): ActiveThread {
+  return {
+    title: `Task ${overrides.taskId}`,
+    workflowId: "wf-1",
+    workflowName: "Delivery",
+    stepTitle: "Build",
+    sessionId: `session-${overrides.taskId}`,
+    sessionState: "RUNNING",
+    pendingAction: null,
+    activeSubagentCount: 0,
+    queuedPromptCount: 0,
+    lastActivityAt: "2026-08-27T10:00:00Z",
     ...overrides,
   };
 }
@@ -244,5 +265,49 @@ describe("selectActiveThreads — workspace scope", () => {
     });
 
     expect(threads).toEqual([]);
+  });
+});
+
+describe("isActiveThreadSession", () => {
+  it("accepts a primary session the deck would show a column for", () => {
+    for (const state of ["RUNNING", "STARTING", "WAITING_FOR_INPUT"] as const) {
+      expect(isActiveThreadSession({ isPrimary: true, state })).toBe(true);
+    }
+  });
+
+  it("accepts a parked primary session that is blocking on a question", () => {
+    expect(
+      isActiveThreadSession({ isPrimary: true, state: "IDLE", pendingAction: "clarification" }),
+    ).toBe(true);
+  });
+
+  it("rejects a settled primary session", () => {
+    for (const state of ["COMPLETED", "FAILED", "CANCELLED", "IDLE", "CREATED"] as const) {
+      expect(isActiveThreadSession({ isPrimary: true, state })).toBe(false);
+    }
+  });
+
+  it("rejects a non-primary session, because the deck has no column for it", () => {
+    expect(isActiveThreadSession({ isPrimary: false, state: "RUNNING" })).toBe(false);
+  });
+
+  it("rejects a session whose state is unknown", () => {
+    expect(isActiveThreadSession({ isPrimary: true, state: null })).toBe(false);
+  });
+});
+
+describe("resolveFocusedThreadId", () => {
+  const threads = [thread({ taskId: "a" }), thread({ taskId: "b" })];
+
+  it("focuses a requested task that has a column", () => {
+    expect(resolveFocusedThreadId(threads, "b")).toBe("b");
+  });
+
+  it("focuses nothing when the requested task settled out of the deck", () => {
+    expect(resolveFocusedThreadId(threads, "gone")).toBeNull();
+  });
+
+  it("focuses nothing when no task was requested", () => {
+    expect(resolveFocusedThreadId(threads, null)).toBeNull();
   });
 });

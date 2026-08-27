@@ -3,6 +3,7 @@
   "emptyBody": "對話流把所有正在執行的代理程式並排展示。在某個任務上啟動代理程式，它的對話就會作為一列出現在這裡。",
   "emptyTitle": "目前沒有代理程式在工作",
   "loading": "正在載入對話...",
+  "openInThreads": "在對話流中開啟",
   "openTask": "開啟任務",
   "queuedPromptCount_one": "{{count}} 條排隊指令",
   "queuedPromptCount_other": "{{count}} 條排隊指令",

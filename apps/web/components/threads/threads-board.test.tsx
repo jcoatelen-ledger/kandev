@@ -12,6 +12,9 @@ import { ThreadsBoard } from "./threads-board";
 
 afterEach(() => cleanup());
 
+const COLUMN_A = "thread-column-a";
+const COLUMN_B = "thread-column-b";
+
 function thread(overrides: Partial<ActiveThread> & { taskId: string }): ActiveThread {
   return {
     title: `Task ${overrides.taskId}`,
@@ -39,8 +42,8 @@ describe("ThreadsBoard", () => {
 
     const columns = screen.getAllByTestId(/^thread-column-/);
     expect(columns.map((column) => column.getAttribute("data-testid"))).toEqual([
-      "thread-column-a",
-      "thread-column-b",
+      COLUMN_A,
+      COLUMN_B,
     ]);
   });
 
@@ -129,7 +132,85 @@ describe("ThreadsBoard", () => {
   it("keeps a landed board visible while a background refresh runs", () => {
     render(<ThreadsBoard threads={[thread({ taskId: "a" })]} isLoading onOpenTask={() => {}} />);
 
-    expect(screen.getByTestId("thread-column-a")).not.toBeNull();
+    expect(screen.getByTestId(COLUMN_A)).not.toBeNull();
     expect(screen.queryByText("Loading threads...")).toBeNull();
+  });
+});
+
+describe("ThreadsBoard — focusing a column from a deep link", () => {
+  function scrollSpy() {
+    const calls: Element[] = [];
+    Element.prototype.scrollIntoView = function scrollIntoViewStub(this: Element) {
+      calls.push(this);
+    } as Element["scrollIntoView"];
+    return calls;
+  }
+
+  it("marks the requested column and leaves the others alone", () => {
+    scrollSpy();
+    render(
+      <ThreadsBoard
+        threads={[thread({ taskId: "a" }), thread({ taskId: "b" })]}
+        focusedTaskId="b"
+        onOpenTask={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId(COLUMN_B).getAttribute("data-focused")).toBe("true");
+    expect(screen.getByTestId(COLUMN_A).getAttribute("data-focused")).toBeNull();
+  });
+
+  it("scrolls the requested column into view", () => {
+    const calls = scrollSpy();
+    render(
+      <ThreadsBoard
+        threads={[thread({ taskId: "a" }), thread({ taskId: "b" })]}
+        focusedTaskId="b"
+        onOpenTask={() => {}}
+      />,
+    );
+
+    expect(calls).toEqual([screen.getByTestId(COLUMN_B)]);
+  });
+
+  it("scrolls nothing when no column was requested", () => {
+    const calls = scrollSpy();
+    render(<ThreadsBoard threads={[thread({ taskId: "a" })]} onOpenTask={() => {}} />);
+
+    expect(calls).toEqual([]);
+  });
+
+  it("still scrolls when the column only arrives with a later snapshot", () => {
+    const calls = scrollSpy();
+    const { rerender } = render(
+      <ThreadsBoard threads={[thread({ taskId: "a" })]} focusedTaskId="b" onOpenTask={() => {}} />,
+    );
+    expect(calls).toEqual([]);
+
+    rerender(
+      <ThreadsBoard
+        threads={[thread({ taskId: "a" }), thread({ taskId: "b" })]}
+        focusedTaskId="b"
+        onOpenTask={() => {}}
+      />,
+    );
+
+    expect(calls).toEqual([screen.getByTestId(COLUMN_B)]);
+  });
+
+  it("does not re-scroll a column that stays focused across updates", () => {
+    const calls = scrollSpy();
+    const { rerender } = render(
+      <ThreadsBoard threads={[thread({ taskId: "b" })]} focusedTaskId="b" onOpenTask={() => {}} />,
+    );
+    rerender(
+      <ThreadsBoard
+        threads={[thread({ taskId: "b", queuedPromptCount: 3 })]}
+        focusedTaskId="b"
+        onOpenTask={() => {}}
+      />,
+    );
+
+    expect(calls).toHaveLength(1);
   });
 });

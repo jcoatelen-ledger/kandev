@@ -69,9 +69,41 @@ function resolveThreadSession(task: KanbanTask): ThreadSession {
   };
 }
 
-function attentionBucket(session: ThreadSession): number | null {
+function attentionBucket(session: {
+  state: TaskSessionState | null | undefined;
+  pendingAction?: TaskPendingAction | null;
+}): number | null {
   if (session.pendingAction || session.state === "WAITING_FOR_INPUT") return NEEDS_HUMAN;
   return session.state && WORKING_STATES.includes(session.state) ? WORKING : null;
+}
+
+/**
+ * Whether one session is the thread the deck would give a column to.
+ *
+ * The deck keys columns by task and renders the task's primary session, so a
+ * non-primary session has no column of its own however busy it is. Surfaces
+ * that offer to jump into the deck ask this first, so they never point at a
+ * column that is not there.
+ */
+export function isActiveThreadSession(session: {
+  isPrimary: boolean;
+  state: TaskSessionState | null | undefined;
+  pendingAction?: TaskPendingAction | null;
+}): boolean {
+  if (!session.isPrimary) return false;
+  return attentionBucket(session) !== null;
+}
+
+/**
+ * The column a deep link asked to focus, or null when that task is not in the
+ * deck — it may have settled between the link being offered and followed.
+ */
+export function resolveFocusedThreadId(
+  threads: readonly ActiveThread[],
+  requestedTaskId: string | null | undefined,
+): string | null {
+  if (!requestedTaskId) return null;
+  return threads.some((thread) => thread.taskId === requestedTaskId) ? requestedTaskId : null;
 }
 
 function toThread(

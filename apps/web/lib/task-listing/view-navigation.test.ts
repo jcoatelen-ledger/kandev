@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { linkToThreads } from "@/lib/links";
 import { resolveTaskListingNavigation } from "./view-navigation";
+
+const WORKSPACE_ID = "workspace-1";
 
 describe("resolveTaskListingNavigation", () => {
   it("sends Threads to its own route from the board", () => {
@@ -7,7 +10,7 @@ describe("resolveTaskListingNavigation", () => {
       resolveTaskListingNavigation({
         view: "threads",
         currentPage: "kanban",
-        workspaceId: "workspace-1",
+        workspaceId: WORKSPACE_ID,
       }),
     ).toEqual({ view: "threads", href: "/threads?workspace=workspace-1" });
   });
@@ -32,7 +35,7 @@ describe("resolveTaskListingNavigation", () => {
       resolveTaskListingNavigation({
         view: "pipeline",
         currentPage: "threads",
-        workspaceId: "workspace-1",
+        workspaceId: WORKSPACE_ID,
         workflowId: "workflow-1",
       }),
     ).toEqual({
@@ -54,5 +57,23 @@ describe("resolveTaskListingNavigation", () => {
   it("ignores a value that is not a listing view", () => {
     expect(resolveTaskListingNavigation({ view: "", currentPage: "kanban" })).toBeNull();
     expect(resolveTaskListingNavigation({ view: "office", currentPage: "kanban" })).toBeNull();
+  });
+});
+
+describe("linkToThreads", () => {
+  it("keeps the deck link plain when no task is focused", () => {
+    expect(linkToThreads()).toBe("/threads");
+    expect(linkToThreads(WORKSPACE_ID)).toBe("/threads?workspace=workspace-1");
+  });
+
+  it("carries the task a caller wants the deck to scroll to", () => {
+    expect(linkToThreads(undefined, "task-1")).toBe("/threads?taskId=task-1");
+    expect(linkToThreads(WORKSPACE_ID, "task-1")).toBe(
+      "/threads?workspace=workspace-1&taskId=task-1",
+    );
+  });
+
+  it("escapes a task id rather than splicing it into the query raw", () => {
+    expect(linkToThreads(undefined, "a b&c")).toBe("/threads?taskId=a+b%26c");
   });
 });

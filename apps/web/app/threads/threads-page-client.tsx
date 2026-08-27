@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo } from "react";
-import { useRouter } from "@/lib/routing/client-router";
+import { useRouter, useSearchParams } from "@/lib/routing/client-router";
 import { KanbanHeader } from "@/components/kanban/kanban-header";
 import { ThreadsBoard } from "@/components/threads/threads-board";
 import { useAppStore } from "@/components/state-provider";
@@ -9,7 +9,7 @@ import { useAllWorkflowSnapshots } from "@/hooks/domains/kanban/use-all-workflow
 import { useKanbanDisplaySettings } from "@/hooks/use-kanban-display-settings";
 import { useTaskListingView } from "@/hooks/use-task-listing-view";
 import { linkToTask } from "@/lib/links";
-import { selectActiveThreads } from "@/lib/threads/active-threads";
+import { resolveFocusedThreadId, selectActiveThreads } from "@/lib/threads/active-threads";
 import { useKanbanRouteBootstrap } from "@/src/kanban-route";
 
 /** Stable identity so the bootstrap effect does not refire on every render. */
@@ -23,6 +23,7 @@ const EMPTY_ROUTE = {};
  */
 export function ThreadsPageClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   // Threads is reachable directly (bookmark, Home restore), so it owns the same
   // workspace/workflow bootstrap the board does instead of assuming the board
   // already ran it.
@@ -45,11 +46,21 @@ export function ThreadsPageClient() {
 
   const handleOpenTask = useCallback((taskId: string) => router.push(linkToTask(taskId)), [router]);
 
+  // Resolved against the rendered deck rather than trusted from the URL: the
+  // requested thread may have settled between the link being offered and
+  // followed, and a focus id no column matches would ring nothing.
+  const focusedTaskId = resolveFocusedThreadId(threads, searchParams.get("taskId"));
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
       <KanbanHeader workspaceId={activeWorkspaceId ?? undefined} currentPage="threads" />
       <div className="min-h-0 flex-1">
-        <ThreadsBoard threads={threads} isLoading={isLoading} onOpenTask={handleOpenTask} />
+        <ThreadsBoard
+          threads={threads}
+          isLoading={isLoading}
+          focusedTaskId={focusedTaskId}
+          onOpenTask={handleOpenTask}
+        />
       </div>
     </div>
   );

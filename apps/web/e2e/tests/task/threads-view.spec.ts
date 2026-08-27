@@ -7,6 +7,7 @@ import { createStandardProfile, openTaskSession } from "../../helpers/git-helper
 import { waitForLatestSessionDone } from "../../helpers/session";
 
 const AGENT_TITLE = "Threads live agent work";
+const SECOND_TITLE = "Threads second live agent work";
 const IDLE_TITLE = "Threads never started";
 
 /**
@@ -22,18 +23,20 @@ async function startAgentTask(
   apiClient: ApiClient,
   seedData: SeedData,
   profileName: string,
+  options: { title?: string } = {},
 ) {
+  const title = options.title ?? AGENT_TITLE;
   const profile = await createStandardProfile(apiClient, profileName);
-  const task = await apiClient.createTaskWithAgent(seedData.workspaceId, AGENT_TITLE, profile.id, {
+  const task = await apiClient.createTaskWithAgent(seedData.workspaceId, title, profile.id, {
     description: "/e2e:simple-message",
     workflow_id: seedData.workflowId,
     workflow_step_id: seedData.startStepId,
     repository_ids: [seedData.repositoryId],
   });
-  await openTaskSession(page, AGENT_TITLE);
+  await openTaskSession(page, title);
   // `POST /tasks` answers with the Task itself, so the id lives on `id` — the
   // `task_id` shape belongs to the seed harness.
-  await waitForLatestSessionDone(apiClient, task.id, 1, `agent turn for ${AGENT_TITLE}`);
+  await waitForLatestSessionDone(apiClient, task.id, 1, `agent turn for ${title}`);
   return task;
 }
 
@@ -93,6 +96,57 @@ test.describe("Threads view", () => {
 
     await column.getByRole("button", { name: "Open task" }).click();
     await expect(testPage).toHaveURL(new RegExp(`/t/${live.id}`));
+  });
+
+  test("hands a discussion back to the deck, scrolled to its column", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(180_000);
+    const live = await startAgentTask(testPage, apiClient, seedData, "threads-round-trip");
+
+    // startAgentTask leaves the browser on the task page, which is the surface
+    // the button lives on.
+    await testPage.getByTestId("open-in-threads-button").click();
+
+    await expect(testPage).toHaveURL(new RegExp(`/threads\\?taskId=${live.id}`));
+    const column = testPage.getByTestId(`thread-column-${live.id}`);
+    await expect(column).toBeVisible();
+    await expect(column).toHaveAttribute("data-focused", "true");
+    // The deck is the round trip's destination, so it must not re-offer the jump.
+    await expect(testPage.getByTestId("open-in-threads-button")).toHaveCount(0);
+  });
+
+  test("shares the board width between columns instead of leaving it empty", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(240_000);
+    const first = await startAgentTask(testPage, apiClient, seedData, "threads-width-a");
+    const second = await startAgentTask(testPage, apiClient, seedData, "threads-width-b", {
+      title: SECOND_TITLE,
+    });
+
+    await testPage.goto("/threads");
+    const board = testPage.getByTestId("threads-board");
+    await expect(board).toBeVisible();
+    const columns = [
+      testPage.getByTestId(`thread-column-${first.id}`),
+      testPage.getByTestId(`thread-column-${second.id}`),
+    ];
+    for (const column of columns) await expect(column).toBeVisible();
+
+    const boardWidth = (await board.boundingBox())?.width ?? 0;
+    const widths = await Promise.all(
+      columns.map(async (column) => (await column.boundingBox())?.width ?? 0),
+    );
+    expect(boardWidth).toBeGreaterThan(0);
+    // Two threads on a desktop board fill it rather than sitting at a fixed
+    // 380px with the rest of the deck blank.
+    expect(Math.min(...widths)).toBeGreaterThan(400);
+    expect(widths[0] + widths[1]).toBeGreaterThan(boardWidth * 0.8);
   });
 
   test("explains an empty deck when nothing is running", async ({

@@ -19,6 +19,32 @@ kanban preview does: a wall of columns is a glance across running work, and
 letting every mounted column advance its own read cursor would mark threads read
 that nobody looked at.
 
+Columns share the board width (`flex-1` above a min-width floor) rather than
+taking a fixed slice, so two threads fill the deck and a busy deck scrolls
+horizontally instead of shrinking into slivers. The phone keeps one full-width
+snapping column, which is a deliberately different layout.
+
+## Round trip with the task page
+
+`linkToThreads(workspaceId, taskId)` produces `/threads?taskId=…`, which asks the
+deck to scroll that column into view and ring it. The focus id is resolved
+against the rendered deck (`resolveFocusedThreadId`), never trusted from the URL:
+the thread may have settled between the link being offered and followed.
+
+The scroll effect is keyed on `isFocused` and the column is keyed by task id, so
+a column that only mounts once a later snapshot lands still scrolls, while a
+column re-rendering with new messages does not yank the deck back.
+
+`OpenInThreadsButton` is the other half, living in the chat status row. It has
+two gates, and both matter:
+
+- `useIsDeckThread` — the session must be the task's live primary thread, so the
+  button is never a dead end. It reads already-loaded sessions and must not
+  fetch; a status-row control triggering a request would be a surprise.
+- pathname — the deck's own columns render the same chat panel, so without this
+  the button would appear inside every column offering a jump to the view
+  already on screen.
+
 ## Adding a task-listing view
 
 `kanban`, `pipeline`, `list` and `threads` share one device-local preference in

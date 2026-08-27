@@ -3,6 +3,7 @@
   "emptyBody": "Os Tópicos colocam lado a lado todos os agentes em execução. Inicie um agente numa tarefa e a conversa aparece aqui como uma coluna.",
   "emptyTitle": "Nenhum agente está a trabalhar neste momento",
   "loading": "A carregar as conversas...",
+  "openInThreads": "Abrir em Tópicos",
   "openTask": "Abrir tarefa",
   "queuedPromptCount_one": "{{count}} pedido em fila",
   "queuedPromptCount_other": "{{count}} pedidos em fila",
