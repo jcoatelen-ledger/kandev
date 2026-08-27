@@ -10,6 +10,7 @@ import { useKanbanDisplaySettings } from "@/hooks/use-kanban-display-settings";
 import { useTaskListingView } from "@/hooks/use-task-listing-view";
 import { linkToTask } from "@/lib/links";
 import { resolveFocusedThreadId, selectActiveThreads } from "@/lib/threads/active-threads";
+import { useStableThreadOrder } from "@/lib/threads/stable-order";
 import { useKanbanRouteBootstrap } from "@/src/kanban-route";
 
 /** Stable identity so the bootstrap effect does not refire on every render. */
@@ -39,10 +40,13 @@ export function ThreadsPageClient() {
     setView("threads");
   }, [setView]);
 
-  const threads = useMemo(
+  const ranked = useMemo(
     () => selectActiveThreads(snapshots, { workflowId: activeWorkflowId }),
     [snapshots, activeWorkflowId],
   );
+  // Ranking decides where a column first appears; after that the slot is the
+  // reader's, so replying to a thread cannot slide it across the deck.
+  const threads = useStableThreadOrder(ranked);
 
   const handleOpenTask = useCallback((taskId: string) => router.push(linkToTask(taskId)), [router]);
 

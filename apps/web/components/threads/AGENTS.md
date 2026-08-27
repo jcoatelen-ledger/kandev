@@ -5,8 +5,16 @@
 `selectActiveThreads` (`lib/threads/active-threads.ts`) derives the columns from
 the workflow snapshots the board already keeps in the store, so opening the view
 costs no extra request and stays live on the same WebSocket updates the cards
-use. Ordering is total (attention bucket, then recency, then task id) because a
-column must not shuffle under the reader.
+use. Its ordering is total (attention bucket, then recency, then task id).
+
+**That ranking decides where a column first appears and nothing after that.**
+`useStableThreadOrder` (`lib/threads/stable-order.ts`) pins each column to its
+slot, and new threads append rather than sorting in. Do not re-apply the ranking
+live: replying to a thread refreshes its activity and flips it out of the
+"needs a human" bucket, so a live re-rank slides the column the reader is typing
+into across the deck, then slides it back when the turn ends. The E2E
+`holds a column's slot and the deck's scroll while you reply to it` fails if this
+is undone.
 
 A task reaches the deck only through its **primary** session, matching the
 backend's `GetPrimarySessionIDsByTaskIDs`. Sessions created by the E2E seed

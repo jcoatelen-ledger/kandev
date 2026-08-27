@@ -182,6 +182,50 @@ test.describe("Threads view", () => {
     expect(await ringed(columns.second)).toBe(false);
   });
 
+  test("holds a column's slot and the deck's scroll while you reply to it", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(240_000);
+    await startAgentTask(testPage, apiClient, seedData, "threads-order-a");
+    await startAgentTask(testPage, apiClient, seedData, "threads-order-b", {
+      title: SECOND_TITLE,
+    });
+
+    await testPage.goto("/threads");
+    const board = testPage.getByTestId("threads-board");
+    await expect(board).toBeVisible();
+    const columnIds = () =>
+      board.evaluate((node) =>
+        [...node.querySelectorAll('[data-testid^="thread-column-"]')].map(
+          (column) => column.getAttribute("data-testid") ?? "",
+        ),
+      );
+
+    const orderBefore = await columnIds();
+    expect(orderBefore).toHaveLength(2);
+    const scrollBefore = await board.evaluate((node) => node.scrollLeft);
+
+    // Reply to the column ranked LAST. Ranking puts the most recent activity
+    // first, so this is the thread whose slot a live re-rank would visibly
+    // move, right while the reader is typing into it.
+    const targetTaskId = orderBefore[orderBefore.length - 1].replace("thread-column-", "");
+    const target = testPage.getByTestId(`thread-column-${targetTaskId}`);
+    const editor = target.locator(".tiptap.ProseMirror");
+    await editor.click();
+    await editor.fill("/e2e:simple-message");
+    await editor.press("Control+Enter");
+
+    // A whole turn's worth of task updates reaches the deck before this
+    // resolves, which is more than enough re-ranking pressure to move a column.
+    await waitForLatestSessionDone(apiClient, targetTaskId, 1, "reply turn never settled");
+    await expect(target.getByTestId("thread-status-needs-you")).toBeVisible({ timeout: 30_000 });
+
+    expect(await columnIds()).toEqual(orderBefore);
+    expect(await board.evaluate((node) => node.scrollLeft)).toBe(scrollBefore);
+  });
+
   test("explains an empty deck when nothing is running", async ({
     testPage,
     apiClient,
