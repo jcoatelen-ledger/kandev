@@ -20,10 +20,11 @@ import { workspaceHomeHref } from "@/lib/navigation/workspace-home";
 import { QuickChatActivityIndicator } from "@/components/quick-chat/quick-chat-activity-indicator";
 import { useQuickChatActivity } from "@/components/quick-chat/use-quick-chat-activity";
 import { cn } from "@/lib/utils";
+import type { TaskListingPage } from "@/lib/task-listing/view-navigation";
 
 type KanbanHeaderMobileProps = {
   workspaceId?: string;
-  currentPage?: "kanban" | "tasks";
+  currentPage?: TaskListingPage;
   title: string;
   workspaceLabel: string;
   searchQuery?: string;
@@ -103,7 +104,7 @@ function MobileHeaderActionItems({
 }: {
   workspaceId?: string;
   workspaceLabel: string;
-  currentPage: "kanban" | "tasks";
+  currentPage: TaskListingPage;
   onSearchChange?: (query: string) => void;
   isSearchOpen: boolean;
   handleOpenQuickChat: () => void;

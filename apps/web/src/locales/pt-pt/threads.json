@@ -1,0 +1,15 @@
+{
+  "columnLabel": "Conversa do agente para {{title}}",
+  "emptyBody": "Os Tópicos colocam lado a lado todos os agentes em execução. Inicie um agente numa tarefa e a conversa aparece aqui como uma coluna.",
+  "emptyTitle": "Nenhum agente está a trabalhar neste momento",
+  "loading": "A carregar as conversas...",
+  "openTask": "Abrir tarefa",
+  "queuedPromptCount_one": "{{count}} pedido em fila",
+  "queuedPromptCount_other": "{{count}} pedidos em fila",
+  "statusNeedsYou": "Precisa de si",
+  "statusStarting": "A iniciar",
+  "statusWorking": "A trabalhar",
+  "subagentCount_one": "{{count}} subagente",
+  "subagentCount_other": "{{count}} subagentes",
+  "title": "Tópicos"
+}

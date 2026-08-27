@@ -5,7 +5,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@kandev/ui/dra
 import { Checkbox } from "@kandev/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@kandev/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@kandev/ui/toggle-group";
-import { IconLayoutKanban, IconList, IconTimeline } from "@tabler/icons-react";
+import { IconColumns, IconLayoutKanban, IconList, IconTimeline } from "@tabler/icons-react";
 import { MobileWorkspaceActionsSection } from "@/components/app-sidebar/app-sidebar-workspace-actions";
 import { AppSidebarWorkspacePicker } from "@/components/app-sidebar/app-sidebar-workspace-picker";
 import {
@@ -33,11 +33,12 @@ import {
   mobileSectionClass,
   mobileSectionTitleClass,
 } from "./mobile-menu-styles";
+import type { TaskListingPage } from "@/lib/task-listing/view-navigation";
 export type MobileMenuSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId?: string;
-  currentPage?: "kanban" | "tasks";
+  currentPage?: TaskListingPage;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
   isSearchLoading?: boolean;
@@ -282,6 +283,13 @@ function MobileViewSection({
             {t("kanban:pipeline")}
           </ToggleGroupItem>
         )}
+        <ToggleGroupItem
+          value="threads"
+          className="h-10 min-w-0 flex-1 cursor-pointer gap-2 text-sm data-[state=on]:bg-muted data-[state=on]:text-foreground"
+        >
+          <IconColumns className={mobileControlIconClass} />
+          {t("kanban:threads")}
+        </ToggleGroupItem>
         <ToggleGroupItem
           value="list"
           className="h-10 min-w-0 flex-1 cursor-pointer gap-2 text-sm data-[state=on]:bg-muted data-[state=on]:text-foreground"

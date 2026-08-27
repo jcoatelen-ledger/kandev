@@ -51,3 +51,8 @@ export function replaceTaskUrl(taskId: string): void {
 export function linkToTasks(workspaceId?: string): string {
   return workspaceId ? `/tasks?workspace=${workspaceId}` : "/tasks";
 }
+
+/** The Threads deck: every live agent conversation side by side. */
+export function linkToThreads(workspaceId?: string): string {
+  return workspaceId ? `/threads?workspace=${workspaceId}` : "/threads";
+}

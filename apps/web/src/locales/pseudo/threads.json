@@ -1,0 +1,15 @@
+{
+  "columnLabel": "Àĝēńţ ţĥŕēàď ƒōŕ {{title}}",
+  "emptyBody": "Ţĥŕēàďś ƥũţś ēvēŕŷ ŕũńńĩńĝ àĝēńţ śĩďē ƀŷ śĩďē. Śţàŕţ àń àĝēńţ ōń à ţàśķ àńď ĩţś ćōńvēŕśàţĩōń śĥōŵś ũƥ ĥēŕē àś à ćōĺũḿń.",
+  "emptyTitle": "Ńō àĝēńţ ĩś ŵōŕķĩńĝ ŕĩĝĥţ ńōŵ",
+  "loading": "Ĺōàďĩńĝ ţĥŕēàďś...",
+  "openTask": "Ōƥēń ţàśķ",
+  "queuedPromptCount_one": "{{count}} qũēũēď ƥŕōḿƥţ",
+  "queuedPromptCount_other": "{{count}} qũēũēď ƥŕōḿƥţś",
+  "statusNeedsYou": "Ńēēďś ŷōũ",
+  "statusStarting": "Śţàŕţĩńĝ",
+  "statusWorking": "Ŵōŕķĩńĝ",
+  "subagentCount_one": "{{count}} śũƀàĝēńţ",
+  "subagentCount_other": "{{count}} śũƀàĝēńţś",
+  "title": "Ţĥŕēàďś"
+}

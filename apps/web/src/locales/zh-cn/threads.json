@@ -1,0 +1,15 @@
+{
+  "columnLabel": "{{title}} 的智能体对话",
+  "emptyBody": "对话流把所有正在运行的智能体并排展示。在某个任务上启动智能体，它的对话就会作为一列出现在这里。",
+  "emptyTitle": "当前没有智能体在工作",
+  "loading": "正在加载对话...",
+  "openTask": "打开任务",
+  "queuedPromptCount_one": "{{count}} 条排队指令",
+  "queuedPromptCount_other": "{{count}} 条排队指令",
+  "statusNeedsYou": "需要你处理",
+  "statusStarting": "正在启动",
+  "statusWorking": "正在处理",
+  "subagentCount_one": "{{count}} 个子智能体",
+  "subagentCount_other": "{{count}} 个子智能体",
+  "title": "对话流"
+}

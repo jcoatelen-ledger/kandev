@@ -21,10 +21,11 @@ import type { WorkflowsState } from "@/lib/state/slices";
 import { useMemo, useRef, useState, type ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 import { getRepositoryPlaceholderKey } from "@/lib/kanban/repository-placeholder";
+import type { TaskListingPage } from "@/lib/task-listing/view-navigation";
 
 type KanbanDisplayDropdownProps = {
   triggerSize?: ComponentProps<typeof Button>["size"];
-  currentPage?: "kanban" | "tasks";
+  currentPage?: TaskListingPage;
   /** Plugin-registered task filters (`registerTaskFilter`) rendered as extra sections. */
   pluginFilters?: PluginTaskFilterRegistration[];
   pluginFilterSelections?: Record<string, string[]>;

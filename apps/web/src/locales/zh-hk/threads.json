@@ -1,0 +1,15 @@
+{
+  "columnLabel": "{{title}} 的代理程式對話",
+  "emptyBody": "對話流把所有正在執行的代理程式並排展示。在某個任務上啓動代理程式，它的對話就會作為一列出現在這裏。",
+  "emptyTitle": "目前沒有代理程式在工作",
+  "loading": "正在載入對話...",
+  "openTask": "開啟任務",
+  "queuedPromptCount_one": "{{count}} 條排隊指令",
+  "queuedPromptCount_other": "{{count}} 條排隊指令",
+  "statusNeedsYou": "需要你處理",
+  "statusStarting": "正在啓動",
+  "statusWorking": "正在處理",
+  "subagentCount_one": "{{count}} 個子代理程式",
+  "subagentCount_other": "{{count}} 個子代理程式",
+  "title": "對話流"
+}

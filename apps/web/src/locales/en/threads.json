@@ -1,0 +1,15 @@
+{
+  "columnLabel": "Agent thread for {{title}}",
+  "emptyBody": "Threads puts every running agent side by side. Start an agent on a task and its conversation shows up here as a column.",
+  "emptyTitle": "No agent is working right now",
+  "loading": "Loading threads...",
+  "openTask": "Open task",
+  "queuedPromptCount_one": "{{count}} queued prompt",
+  "queuedPromptCount_other": "{{count}} queued prompts",
+  "statusNeedsYou": "Needs you",
+  "statusStarting": "Starting",
+  "statusWorking": "Working",
+  "subagentCount_one": "{{count}} subagent",
+  "subagentCount_other": "{{count}} subagents",
+  "title": "Threads"
+}
