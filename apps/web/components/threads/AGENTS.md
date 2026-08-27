@@ -43,6 +43,11 @@ The scroll effect is keyed on `isFocused` and the column is keyed by task id, so
 a column that only mounts once a later snapshot lands still scrolls, while a
 column re-rendering with new messages does not yank the deck back.
 
+The mark retires on the first pointer or focus interaction with the deck, since
+it only ever answered "where is the column I asked for". Dismissal is keyed to
+the requested id, so a later deep link earns a fresh mark rather than being
+swallowed by an earlier dismissal.
+
 `OpenInThreadsButton` is the other half, living in the chat status row. It has
 two gates, and both matter:
 

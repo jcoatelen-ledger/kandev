@@ -116,6 +116,11 @@ test.describe("Threads view", () => {
     await expect(column).toHaveAttribute("data-focused", "true");
     // The deck is the round trip's destination, so it must not re-offer the jump.
     await expect(testPage.getByTestId("open-in-threads-button")).toHaveCount(0);
+
+    // The mark answers "where is it"; once the reader starts working it has
+    // nothing left to say and must not sit on the column indefinitely.
+    await column.locator(".tiptap.ProseMirror").click();
+    await expect(column).not.toHaveAttribute("data-focused", "true");
   });
 
   test("shares the board width between columns instead of leaving it empty", async ({

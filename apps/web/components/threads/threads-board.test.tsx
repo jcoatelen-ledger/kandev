@@ -13,6 +13,7 @@ import { ThreadsBoard } from "./threads-board";
 afterEach(() => cleanup());
 
 const COLUMN_A = "thread-column-a";
+const FOCUSED_ATTR = "data-focused";
 const COLUMN_B = "thread-column-b";
 
 function thread(overrides: Partial<ActiveThread> & { taskId: string }): ActiveThread {
@@ -156,8 +157,8 @@ describe("ThreadsBoard — focusing a column from a deep link", () => {
       />,
     );
 
-    expect(screen.getByTestId(COLUMN_B).getAttribute("data-focused")).toBe("true");
-    expect(screen.getByTestId(COLUMN_A).getAttribute("data-focused")).toBeNull();
+    expect(screen.getByTestId(COLUMN_B).getAttribute(FOCUSED_ATTR)).toBe("true");
+    expect(screen.getByTestId(COLUMN_A).getAttribute(FOCUSED_ATTR)).toBeNull();
   });
 
   it("scrolls the requested column into view", () => {
@@ -212,5 +213,71 @@ describe("ThreadsBoard — focusing a column from a deep link", () => {
     );
 
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("ThreadsBoard — retiring the deep-link mark", () => {
+  it("drops the mark once the reader touches the deck", () => {
+    render(
+      <ThreadsBoard
+        threads={[thread({ taskId: "a" }), thread({ taskId: "b" })]}
+        focusedTaskId="b"
+        onOpenTask={() => {}}
+      />,
+    );
+    expect(screen.getByTestId(COLUMN_B).getAttribute(FOCUSED_ATTR)).toBe("true");
+
+    fireEvent.pointerDown(screen.getByTestId(COLUMN_A));
+
+    expect(screen.getByTestId(COLUMN_B).getAttribute(FOCUSED_ATTR)).toBeNull();
+  });
+
+  it("drops the mark when focus lands anywhere in the deck", () => {
+    render(
+      <ThreadsBoard threads={[thread({ taskId: "b" })]} focusedTaskId="b" onOpenTask={() => {}} />,
+    );
+
+    fireEvent.focusIn(screen.getByTestId(COLUMN_B));
+
+    expect(screen.getByTestId(COLUMN_B).getAttribute(FOCUSED_ATTR)).toBeNull();
+  });
+
+  it("marks again when a later deep link asks for another column", () => {
+    const { rerender } = render(
+      <ThreadsBoard
+        threads={[thread({ taskId: "a" }), thread({ taskId: "b" })]}
+        focusedTaskId="b"
+        onOpenTask={() => {}}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByTestId(COLUMN_A));
+    expect(screen.getByTestId(COLUMN_B).getAttribute(FOCUSED_ATTR)).toBeNull();
+
+    rerender(
+      <ThreadsBoard
+        threads={[thread({ taskId: "a" }), thread({ taskId: "b" })]}
+        focusedTaskId="a"
+        onOpenTask={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId(COLUMN_A).getAttribute(FOCUSED_ATTR)).toBe("true");
+  });
+
+  it("keeps the mark retired while the same deep link stays in the URL", () => {
+    const { rerender } = render(
+      <ThreadsBoard threads={[thread({ taskId: "b" })]} focusedTaskId="b" onOpenTask={() => {}} />,
+    );
+    fireEvent.pointerDown(screen.getByTestId(COLUMN_B));
+
+    rerender(
+      <ThreadsBoard
+        threads={[thread({ taskId: "b", queuedPromptCount: 2 })]}
+        focusedTaskId="b"
+        onOpenTask={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId(COLUMN_B).getAttribute(FOCUSED_ATTR)).toBeNull();
   });
 });
