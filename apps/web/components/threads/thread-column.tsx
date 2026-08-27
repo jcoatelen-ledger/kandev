@@ -104,7 +104,14 @@ export function ThreadColumn({
       // two threads fill the board instead of leaving it mostly empty. The min
       // width is the floor they stop shrinking at, which is what turns a busy
       // deck into a horizontal scroll rather than a row of slivers.
-      className="flex h-full min-h-0 w-[85vw] shrink-0 snap-start flex-col overflow-hidden rounded-lg border bg-card data-[focused=true]:ring-2 data-[focused=true]:ring-primary sm:w-auto sm:min-w-[360px] sm:flex-1 sm:shrink"
+      //
+      // Two marks, deliberately different properties so they can coexist
+      // without fighting over one ring colour:
+      //   ring    — where the caret is. A composer's own border tracks agent
+      //             state, not focus, so in a deck of composers nothing else
+      //             says where typing would land.
+      //   outline — the column a deep link asked for.
+      className="flex h-full min-h-0 w-[85vw] shrink-0 snap-start flex-col overflow-hidden rounded-lg border bg-card focus-within:ring-2 focus-within:ring-ring data-[focused=true]:outline data-[focused=true]:outline-2 data-[focused=true]:outline-offset-2 data-[focused=true]:outline-primary sm:w-auto sm:min-w-[360px] sm:flex-1 sm:shrink"
     >
       <header className="flex flex-col gap-1 border-b px-3 py-2">
         <div className="flex items-start gap-2">

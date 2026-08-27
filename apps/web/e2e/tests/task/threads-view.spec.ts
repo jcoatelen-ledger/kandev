@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "../../fixtures/test-base";
 import type { SeedData } from "../../fixtures/test-base";
 import type { ApiClient } from "../../helpers/api-client";
@@ -147,6 +147,39 @@ test.describe("Threads view", () => {
     // 380px with the rest of the deck blank.
     expect(Math.min(...widths)).toBeGreaterThan(400);
     expect(widths[0] + widths[1]).toBeGreaterThan(boardWidth * 0.8);
+  });
+
+  test("shows which column the cursor is in, and moves that mark on click", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(240_000);
+    const first = await startAgentTask(testPage, apiClient, seedData, "threads-focus-a");
+    const second = await startAgentTask(testPage, apiClient, seedData, "threads-focus-b", {
+      title: SECOND_TITLE,
+    });
+
+    await testPage.goto("/threads");
+    const columns = {
+      first: testPage.getByTestId(`thread-column-${first.id}`),
+      second: testPage.getByTestId(`thread-column-${second.id}`),
+    };
+    for (const column of Object.values(columns)) await expect(column).toBeVisible();
+
+    // The composer's own border tracks agent state, not the caret, so the
+    // column has to carry the focus mark or a deck of composers gives the
+    // reader no way to tell where typing will land.
+    const ringed = (column: Locator) =>
+      column.evaluate((node) => getComputedStyle(node).boxShadow !== "none");
+
+    await columns.second.locator(".tiptap.ProseMirror").click();
+    await expect.poll(() => ringed(columns.second)).toBe(true);
+    expect(await ringed(columns.first)).toBe(false);
+
+    await columns.first.locator(".tiptap.ProseMirror").click();
+    await expect.poll(() => ringed(columns.first)).toBe(true);
+    expect(await ringed(columns.second)).toBe(false);
   });
 
   test("explains an empty deck when nothing is running", async ({
