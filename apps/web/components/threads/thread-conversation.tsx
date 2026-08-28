@@ -18,6 +18,12 @@ import { TaskChatPanel } from "@/components/task/task-chat-panel";
  */
 export function ThreadConversation({ taskId, sessionId }: { taskId: string; sessionId: string }) {
   return (
-    <TaskChatPanel sessionId={sessionId} taskId={taskId} hideSessionsDropdown isVisible={false} />
+    <TaskChatPanel
+      sessionId={sessionId}
+      taskId={taskId}
+      hideSessionsDropdown
+      embedded
+      isVisible={false}
+    />
   );
 }

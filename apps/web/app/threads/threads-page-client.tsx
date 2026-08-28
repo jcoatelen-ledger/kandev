@@ -12,6 +12,30 @@ import { linkToTask } from "@/lib/links";
 import { resolveFocusedThreadId, selectActiveThreads } from "@/lib/threads/active-threads";
 import { useStableThreadOrder } from "@/lib/threads/stable-order";
 import { useKanbanRouteBootstrap } from "@/src/kanban-route";
+import type { WorkflowSnapshotData } from "@/lib/state/slices/kanban/types";
+
+type WorkspaceWorkflow = { id: string; workspaceId: string };
+
+/**
+ * Keep the derived deck scoped to the workspace that the route currently
+ * names. Snapshot cleanup runs in an effect, so render-time filtering must not
+ * trust the global map while a workspace transition is in progress.
+ */
+export function scopeSnapshotsToWorkspace(
+  snapshots: Record<string, WorkflowSnapshotData>,
+  workflows: readonly WorkspaceWorkflow[],
+  workspaceId: string | null | undefined,
+): Record<string, WorkflowSnapshotData> {
+  if (!workspaceId) return {};
+  const workflowIds = new Set(
+    workflows
+      .filter((workflow) => workflow.workspaceId === workspaceId)
+      .map((workflow) => workflow.id),
+  );
+  return Object.fromEntries(
+    Object.entries(snapshots).filter(([workflowId]) => workflowIds.has(workflowId)),
+  );
+}
 
 /**
  * The Threads page: every live agent conversation in the workspace, side by
@@ -33,20 +57,34 @@ export function ThreadsPageClient() {
     [requestedWorkspaceId],
   );
   useKanbanRouteBootstrap(bootstrapRoute, false);
-  const { activeWorkspaceId, activeWorkflowId } = useKanbanDisplaySettings();
+  const { activeWorkspaceId, activeWorkflowId, workflows, workspaces } = useKanbanDisplaySettings();
   const { setView } = useTaskListingView();
   const snapshots = useAppStore((state) => state.kanbanMulti.snapshots);
   const isLoading = useAppStore((state) => state.kanbanMulti.isLoading);
 
-  useAllWorkflowSnapshots(activeWorkspaceId);
+  // Keep a valid deep-link workspace during the bootstrap transition, but use
+  // the resolved active workspace when a stale or invalid link is supplied.
+  const requestedWorkspaceIsKnown = requestedWorkspaceId
+    ? workspaces.some((workspace) => workspace.id === requestedWorkspaceId)
+    : false;
+  const scopedWorkspaceId =
+    requestedWorkspaceId && (workspaces.length === 0 || requestedWorkspaceIsKnown)
+      ? requestedWorkspaceId
+      : activeWorkspaceId;
+  useAllWorkflowSnapshots(scopedWorkspaceId);
+
+  const scopedSnapshots = useMemo(
+    () => scopeSnapshotsToWorkspace(snapshots, workflows, scopedWorkspaceId),
+    [snapshots, workflows, scopedWorkspaceId],
+  );
 
   useEffect(() => {
     setView("threads");
   }, [setView]);
 
   const ranked = useMemo(
-    () => selectActiveThreads(snapshots, { workflowId: activeWorkflowId }),
-    [snapshots, activeWorkflowId],
+    () => selectActiveThreads(scopedSnapshots, { workflowId: activeWorkflowId }),
+    [scopedSnapshots, activeWorkflowId],
   );
   // Ranking decides where a column first appears; after that the slot is the
   // reader's, so replying to a thread cannot slide it across the deck.

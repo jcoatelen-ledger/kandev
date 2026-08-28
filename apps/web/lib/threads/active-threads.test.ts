@@ -9,6 +9,7 @@ import {
 
 const TASK_1 = "task-1";
 const LIVE_SESSION = "live-session";
+const SUMMARY_UPDATED_AT = "2026-08-27T10:05:00Z";
 
 type TaskOverrides = Partial<KanbanState["tasks"][number]> & { id: string };
 
@@ -143,6 +144,34 @@ describe("selectActiveThreads", () => {
 });
 
 describe("selectActiveThreads — thread contents and scope", () => {
+  it("does not attribute a secondary session's pending action to the primary", () => {
+    const threads = selectActiveThreads({
+      "wf-1": snapshot("wf-1", "Delivery", [
+        task({
+          id: TASK_1,
+          primarySessionId: LIVE_SESSION,
+          primarySessionState: "RUNNING",
+          primarySessionPendingAction: null,
+          taskPendingAction: "clarification",
+          statusSummary: {
+            revision: 4,
+            updated_at: SUMMARY_UPDATED_AT,
+            primary_session: { id: LIVE_SESSION, state: "RUNNING" },
+            pending_action: "permission",
+          },
+        }),
+      ]),
+    });
+
+    expect(threads).toEqual([
+      expect.objectContaining({
+        sessionId: LIVE_SESSION,
+        sessionState: "RUNNING",
+        pendingAction: null,
+      }),
+    ]);
+  });
+
   it("prefers the live status summary over the cached primary-session fields", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
@@ -152,7 +181,7 @@ describe("selectActiveThreads — thread contents and scope", () => {
           primarySessionState: "COMPLETED",
           statusSummary: {
             revision: 4,
-            updated_at: "2026-08-27T10:05:00Z",
+            updated_at: SUMMARY_UPDATED_AT,
             last_activity_at: "2026-08-27T10:04:00Z",
             primary_session: { id: LIVE_SESSION, state: "RUNNING" },
             active_subagent_count: 2,
@@ -187,7 +216,7 @@ describe("selectActiveThreads — thread contents and scope", () => {
           primarySessionState: "RUNNING",
           statusSummary: {
             revision: 9,
-            updated_at: "2026-08-27T10:05:00Z",
+            updated_at: SUMMARY_UPDATED_AT,
             primary_session: { id: LIVE_SESSION, state: "WAITING_FOR_INPUT" },
           },
         }),
@@ -209,7 +238,7 @@ describe("selectActiveThreads — thread contents and scope", () => {
           primarySessionState: "RUNNING",
           statusSummary: {
             revision: 9,
-            updated_at: "2026-08-27T10:05:00Z",
+            updated_at: SUMMARY_UPDATED_AT,
             queued_prompt_count: 2,
           },
         }),

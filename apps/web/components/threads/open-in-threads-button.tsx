@@ -4,7 +4,7 @@ import { IconColumns } from "@tabler/icons-react";
 import { Button } from "@kandev/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@kandev/ui/tooltip";
 import { useIsDeckThread } from "@/hooks/domains/threads/use-deck-thread";
-import { linkToThreads } from "@/lib/links";
+import { linkToThreads, normalizePathname } from "@/lib/links";
 import { usePathname, useRouter } from "@/lib/routing/client-router";
 import { useTranslation } from "react-i18next";
 
@@ -34,7 +34,7 @@ export function OpenInThreadsButton({
   const pathname = usePathname();
   const isDeckThread = useIsDeckThread(taskId, sessionId);
 
-  if (!isDeckThread || !taskId || pathname === THREADS_PATHNAME) return null;
+  if (!isDeckThread || !taskId || normalizePathname(pathname) === THREADS_PATHNAME) return null;
   const label = t("threads:openInThreads");
 
   return (

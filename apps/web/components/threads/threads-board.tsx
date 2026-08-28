@@ -93,7 +93,7 @@ export function ThreadsBoard({
       // interaction that retires the mark.
       onPointerDownCapture={retire}
       onFocusCapture={retire}
-      className="flex h-full min-h-0 w-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden p-3 sm:snap-none"
+      className="flex h-full min-h-0 w-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden p-3 md:snap-none"
     >
       {threads.map((thread) => (
         <ThreadColumn

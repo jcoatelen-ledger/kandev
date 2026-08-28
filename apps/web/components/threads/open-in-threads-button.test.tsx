@@ -89,6 +89,13 @@ describe("OpenInThreadsButton", () => {
     expect(screen.queryByRole("button", { name: BUTTON_NAME })).toBeNull();
   });
 
+  it("stays hidden for the trailing-slash deck route", () => {
+    pathnameMock.value = "/threads/";
+    renderButton([session()]);
+
+    expect(screen.queryByRole("button", { name: BUTTON_NAME })).toBeNull();
+  });
+
   it("stays hidden when the task's sessions are not loaded", () => {
     renderButton([]);
 

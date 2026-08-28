@@ -54,6 +54,19 @@ describe("ThreadsBoard", () => {
     expect(screen.getByTestId("thread-conversation-session-a")).not.toBeNull();
   });
 
+  it("keeps the snap pager through the mobile breakpoint", () => {
+    render(
+      <ThreadsBoard
+        threads={[thread({ taskId: "a" }), thread({ taskId: "b" })]}
+        onOpenTask={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("threads-board").className).toContain("md:snap-none");
+    expect(screen.getByTestId(COLUMN_A).className).toContain("md:w-auto");
+    expect(screen.getByTestId(COLUMN_A).className).not.toContain("sm:w-auto");
+  });
+
   it("labels a thread with its task title, workflow and step", () => {
     render(
       <ThreadsBoard

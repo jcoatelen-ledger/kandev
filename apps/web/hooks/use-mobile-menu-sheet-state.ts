@@ -58,7 +58,12 @@ function resolveMobileMenuViewValue(currentPage: TaskListingPage, effectiveView:
 
 type BuildMobileDisplayOptionsInput = Omit<
   MobileDisplayOptionsProps,
-  "showTaskDetails" | "showWorkflow" | "tasksListOptions" | "columnsSection"
+  | "showTaskDetails"
+  | "showWorkflow"
+  | "showRepository"
+  | "showPreviewPanel"
+  | "tasksListOptions"
+  | "columnsSection"
 > & {
   currentPage: TaskListingPage;
   isMobile: boolean;
@@ -78,6 +83,8 @@ function buildMobileDisplayOptions({
     ...rest,
     showTaskDetails: currentPage === "tasks",
     showWorkflow: !isMobile || currentPage !== "kanban",
+    showRepository: currentPage !== "threads",
+    showPreviewPanel: currentPage !== "threads",
     tasksListOptions: isMobile && currentPage === "tasks" ? tasksListOptions : undefined,
     columnsSection,
   };

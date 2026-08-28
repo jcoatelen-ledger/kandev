@@ -259,32 +259,36 @@ export function KanbanDisplayDropdown({
             workflows={workflows}
             onWorkflowChange={onWorkflowChange}
           />
-          <DropdownMenuSeparator />
-          <RepositorySection
-            repositoryValue={repositoryValue}
-            repositories={repositories}
-            repositoriesLoading={repositoriesLoading}
-            onRepositoryChange={onRepositoryChange}
-          />
-          {pluginFilters?.map((filter) => {
-            const filterKey = pluginTaskFilterRegistrationKey(filter);
-            return (
-              <div key={filterKey} className="contents">
-                <DropdownMenuSeparator />
-                <PluginFilterSection
-                  filter={filter}
-                  filterKey={filterKey}
-                  selected={pluginFilterSelections?.[filterKey] ?? []}
-                  onChange={(values) => onPluginFilterChange?.(filterKey, values)}
-                />
-              </div>
-            );
-          })}
-          <DropdownMenuSeparator />
-          <PreviewPanelSection
-            enablePreviewOnClick={enablePreviewOnClick}
-            onTogglePreviewOnClick={onTogglePreviewOnClick}
-          />
+          {currentPage !== "threads" && (
+            <>
+              <DropdownMenuSeparator />
+              <RepositorySection
+                repositoryValue={repositoryValue}
+                repositories={repositories}
+                repositoriesLoading={repositoriesLoading}
+                onRepositoryChange={onRepositoryChange}
+              />
+              {pluginFilters?.map((filter) => {
+                const filterKey = pluginTaskFilterRegistrationKey(filter);
+                return (
+                  <div key={filterKey} className="contents">
+                    <DropdownMenuSeparator />
+                    <PluginFilterSection
+                      filter={filter}
+                      filterKey={filterKey}
+                      selected={pluginFilterSelections?.[filterKey] ?? []}
+                      onChange={(values) => onPluginFilterChange?.(filterKey, values)}
+                    />
+                  </div>
+                );
+              })}
+              <DropdownMenuSeparator />
+              <PreviewPanelSection
+                enablePreviewOnClick={enablePreviewOnClick}
+                onTogglePreviewOnClick={onTogglePreviewOnClick}
+              />
+            </>
+          )}
           {currentPage === "tasks" && (
             <TasksListSection
               tasksListShowDetails={tasksListShowDetails}

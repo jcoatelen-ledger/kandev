@@ -41,12 +41,11 @@ type ThreadSession = {
 };
 
 function resolvePendingAction(task: KanbanTask): TaskPendingAction | null {
-  return (
-    task.statusSummary?.pending_action ??
-    task.primarySessionPendingAction ??
-    task.taskPendingAction ??
-    null
-  );
+  // The bounded status summary and taskPendingAction are aggregates across
+  // every session. Threads renders the primary session only, so using either
+  // aggregate here can attribute a child session's request to the wrong
+  // conversation.
+  return task.primarySessionPendingAction ?? null;
 }
 
 function resolveLastActivityAt(task: KanbanTask): string | null {

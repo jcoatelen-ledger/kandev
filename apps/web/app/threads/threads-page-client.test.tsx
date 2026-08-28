@@ -18,6 +18,8 @@ vi.mock("@/hooks/use-kanban-display-settings", () => ({
   useKanbanDisplaySettings: () => ({
     activeWorkspaceId: "stored-workspace",
     activeWorkflowId: null,
+    workspaces: [],
+    workflows: [],
   }),
 }));
 vi.mock("@/hooks/use-task-listing-view", () => ({
@@ -28,7 +30,7 @@ vi.mock("@/components/state-provider", () => ({
     selector({ kanbanMulti: { snapshots: {}, isLoading: false } }),
 }));
 
-import { ThreadsPageClient } from "./threads-page-client";
+import { scopeSnapshotsToWorkspace, ThreadsPageClient } from "./threads-page-client";
 
 afterEach(() => {
   cleanup();
@@ -46,6 +48,26 @@ describe("ThreadsPageClient — workspace deep links", () => {
       expect.objectContaining({ workspaceId: "requested-workspace" }),
       false,
     );
+  });
+
+  it("scopes snapshots to the requested workspace before effects clear stale data", () => {
+    const snapshots = {
+      "wf-old": { workflowId: "wf-old", workflowName: "Old", steps: [], tasks: [] },
+      "wf-new": { workflowId: "wf-new", workflowName: "New", steps: [], tasks: [] },
+    };
+
+    expect(
+      Object.keys(
+        scopeSnapshotsToWorkspace(
+          snapshots,
+          [
+            { id: "wf-old", workspaceId: "workspace-old" },
+            { id: "wf-new", workspaceId: "workspace-new" },
+          ],
+          "workspace-new",
+        ),
+      ),
+    ).toEqual(["wf-new"]);
   });
 
   it("leaves the workspace unset when the link names none", () => {
