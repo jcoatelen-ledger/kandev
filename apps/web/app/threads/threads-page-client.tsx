@@ -13,9 +13,6 @@ import { resolveFocusedThreadId, selectActiveThreads } from "@/lib/threads/activ
 import { useStableThreadOrder } from "@/lib/threads/stable-order";
 import { useKanbanRouteBootstrap } from "@/src/kanban-route";
 
-/** Stable identity so the bootstrap effect does not refire on every render. */
-const EMPTY_ROUTE = {};
-
 /**
  * The Threads page: every live agent conversation in the workspace, side by
  * side. It reads the workflow snapshots the board already keeps in the store,
@@ -25,10 +22,17 @@ const EMPTY_ROUTE = {};
 export function ThreadsPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Threads is reachable directly (bookmark, Home restore), so it owns the same
-  // workspace/workflow bootstrap the board does instead of assuming the board
-  // already ran it.
-  useKanbanRouteBootstrap(EMPTY_ROUTE, false);
+  // Threads is reachable directly (bookmark, Home restore, a cross-workspace
+  // link), so it owns the same workspace bootstrap the board does instead of
+  // assuming the board already ran it. The requested workspace has to reach
+  // the bootstrap: without it a `/threads?workspace=A` link silently loads
+  // whichever workspace the cookie or saved setting last named.
+  const requestedWorkspaceId = searchParams.get("workspace") ?? undefined;
+  const bootstrapRoute = useMemo(
+    () => ({ workspaceId: requestedWorkspaceId }),
+    [requestedWorkspaceId],
+  );
+  useKanbanRouteBootstrap(bootstrapRoute, false);
   const { activeWorkspaceId, activeWorkflowId } = useKanbanDisplaySettings();
   const { setView } = useTaskListingView();
   const snapshots = useAppStore((state) => state.kanbanMulti.snapshots);

@@ -22,15 +22,28 @@ harness are never primary, so a spec has to run a real agent turn (create the
 task with an agent, open the task page to launch the session, then wait) rather
 than seeding a RUNNING row.
 
-Columns mount `TaskChatPanel` with `isVisible={false}`, for the same reason the
-kanban preview does: a wall of columns is a glance across running work, and
-letting every mounted column advance its own read cursor would mark threads read
-that nobody looked at.
+Columns mount `TaskChatPanel` with **no `onSend`**. Its own submit path is what
+honours the session's queue input mode, the selected model, plan mode, context
+files and the optimistic store update; a custom sender posts straight to
+`message.add` and drops all of it, so a reply to a busy thread jumps its queue.
+(`PreviewSessionBody` in the kanban preview still passes one and has the same
+defect.)
+
+They do pass `isVisible={false}`, for the same reason the kanban preview does: a
+wall of columns is a glance across running work, and letting every mounted
+column advance its own read cursor would mark threads read that nobody looked
+at.
 
 Columns share the board width (`flex-1` above a min-width floor) rather than
 taking a fixed slice, so two threads fill the deck and a busy deck scrolls
 horizontally instead of shrinking into slivers. The phone keeps one full-width
 snapping column, which is a deliberately different layout.
+
+The page reads `?workspace=` into the route it hands `useKanbanRouteBootstrap`.
+Without it a cross-workspace link loads whichever workspace the cookie last
+named. Scope changes from the shared header go through `listingHistoryHref`,
+which keeps the deck's own path: those handlers `pushState` without routing, so
+a task-overview href would leave the deck rendered under a Home URL.
 
 ## Round trip with the task page
 

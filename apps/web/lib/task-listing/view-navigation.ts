@@ -1,4 +1,4 @@
-import { linkToTaskOverview, linkToTasks, linkToThreads } from "@/lib/links";
+import { linkToTaskOverview, linkToTasks, linkToThreads, normalizePathname } from "@/lib/links";
 import { parseTaskListingView, type TaskListingView } from "./view-preference";
 
 /** Which top-level page the user is looking at when they pick a view. */
@@ -18,6 +18,9 @@ export type TaskListingNavigation = {
   /** Null when the current page already renders the chosen view. */
   href: string | null;
 };
+
+const THREADS_PATH = "/threads";
+const TASKS_PATH = "/tasks";
 
 /** The page each view renders on, so the same switch drives every surface. */
 const VIEW_PAGE: Record<TaskListingView, TaskListingPage> = {
@@ -59,4 +62,23 @@ export function resolveTaskListingNavigation({
     view: parsed,
     href: VIEW_PAGE[parsed] === currentPage ? null : hrefFor(parsed, workspaceId, workflowId),
   };
+}
+
+/**
+ * Where a workspace or workflow change should rewrite the URL to, given the
+ * page it happened on.
+ *
+ * The board's scope handlers `pushState` directly rather than routing, so a
+ * fixed task-overview href would leave the deck or the list rendered under a
+ * Home URL: the two disagree until a reload or a back/forward silently swaps
+ * in the board. Routed views keep their own path instead.
+ */
+export function listingHistoryHref(
+  pathname: string,
+  scope: { workspaceId?: string; workflowId?: string },
+): string {
+  const normalized = normalizePathname(pathname);
+  if (normalized === THREADS_PATH) return linkToThreads(scope.workspaceId);
+  if (normalized === TASKS_PATH) return linkToTasks(scope.workspaceId);
+  return linkToTaskOverview(scope);
 }

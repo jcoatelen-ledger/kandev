@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import type { ActiveThread } from "./active-threads";
 
 /**
@@ -32,9 +32,13 @@ export function applyStableThreadOrder(
 }
 
 /**
- * Applies {@link applyStableThreadOrder} across renders. Safe to derive during
- * render because the ordering is idempotent: feeding it an already-stable
- * order returns that order unchanged.
+ * Applies {@link applyStableThreadOrder} across renders.
+ *
+ * The carried-over order is recorded after commit, not during render: a render
+ * React discards must not leave its order behind, or a later render would hold
+ * slots for an arrangement the reader never saw. Deriving during render stays
+ * correct because the ordering is a pure function of the committed order and
+ * the current threads.
  */
 export function useStableThreadOrder(threads: ActiveThread[]): ActiveThread[] {
   const orderRef = useRef<string[]>([]);
@@ -44,6 +48,8 @@ export function useStableThreadOrder(threads: ActiveThread[]): ActiveThread[] {
     // carried-over order, deliberately read without re-running on its change.
     [threads],
   );
-  orderRef.current = ordered.map((thread) => thread.taskId);
+  useLayoutEffect(() => {
+    orderRef.current = ordered.map((thread) => thread.taskId);
+  }, [ordered]);
   return ordered;
 }

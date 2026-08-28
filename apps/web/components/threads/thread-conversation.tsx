@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback } from "react";
-import type { ChatSubmitPayload } from "@/components/task/chat/chat-input-container";
 import { TaskChatPanel } from "@/components/task/task-chat-panel";
-import { sendMessageRequest } from "@/hooks/use-message-handler";
 
 /**
  * One column's live conversation.
+ *
+ * Deliberately passes no `onSend`. `TaskChatPanel`'s own submit path
+ * (`useMessageHandler`) is what honours the session's queue input mode, the
+ * selected model, plan mode, context files and the optimistic store update; a
+ * custom sender here would post straight to `message.add` and silently drop all
+ * of it, so a reply to a busy thread would jump its queue.
  *
  * `isVisible` stays false for the same reason the kanban preview keeps it
  * false: a wall of columns is a glance across running work, and letting every
@@ -14,29 +17,7 @@ import { sendMessageRequest } from "@/hooks/use-message-handler";
  * read that the user never looked at.
  */
 export function ThreadConversation({ taskId, sessionId }: { taskId: string; sessionId: string }) {
-  const handleSend = useCallback(
-    async (payload: ChatSubmitPayload) => {
-      await sendMessageRequest({
-        taskId,
-        resolvedSessionId: sessionId,
-        finalMessage: payload.message,
-        modelToSend: undefined,
-        planMode: false,
-        hasReviewComments: !!payload.reviewComments?.length,
-        attachments: payload.attachments,
-        entityReferences: payload.entityReferences,
-      });
-    },
-    [taskId, sessionId],
-  );
-
   return (
-    <TaskChatPanel
-      onSend={handleSend}
-      sessionId={sessionId}
-      taskId={taskId}
-      hideSessionsDropdown
-      isVisible={false}
-    />
+    <TaskChatPanel sessionId={sessionId} taskId={taskId} hideSessionsDropdown isVisible={false} />
   );
 }

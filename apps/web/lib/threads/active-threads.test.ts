@@ -7,6 +7,9 @@ import {
   type ActiveThread,
 } from "./active-threads";
 
+const TASK_1 = "task-1";
+const LIVE_SESSION = "live-session";
+
 type TaskOverrides = Partial<KanbanState["tasks"][number]> & { id: string };
 
 function task(overrides: TaskOverrides): KanbanState["tasks"][number] {
@@ -144,14 +147,14 @@ describe("selectActiveThreads — thread contents and scope", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
         task({
-          id: "task-1",
+          id: TASK_1,
           primarySessionId: "stale-session",
           primarySessionState: "COMPLETED",
           statusSummary: {
             revision: 4,
             updated_at: "2026-08-27T10:05:00Z",
             last_activity_at: "2026-08-27T10:04:00Z",
-            primary_session: { id: "live-session", state: "RUNNING" },
+            primary_session: { id: LIVE_SESSION, state: "RUNNING" },
             active_subagent_count: 2,
             queued_prompt_count: 1,
           },
@@ -161,8 +164,8 @@ describe("selectActiveThreads — thread contents and scope", () => {
 
     expect(threads).toEqual([
       expect.objectContaining({
-        taskId: "task-1",
-        sessionId: "live-session",
+        taskId: TASK_1,
+        sessionId: LIVE_SESSION,
         sessionState: "RUNNING",
         activeSubagentCount: 2,
         queuedPromptCount: 1,
@@ -171,10 +174,61 @@ describe("selectActiveThreads — thread contents and scope", () => {
     ]);
   });
 
+  it("never mixes a summary session with a cached state, or the reverse", () => {
+    // The summary is one coherent observation. Resolving id and state from
+    // different sources can pair a live id with a settled cached state, or a
+    // stale cached id with a live state, and mount a conversation for a
+    // session that is not the one the state describes.
+    const threads = selectActiveThreads({
+      "wf-1": snapshot("wf-1", "Delivery", [
+        task({
+          id: TASK_1,
+          primarySessionId: "stale-session",
+          primarySessionState: "RUNNING",
+          statusSummary: {
+            revision: 9,
+            updated_at: "2026-08-27T10:05:00Z",
+            primary_session: { id: LIVE_SESSION, state: "WAITING_FOR_INPUT" },
+          },
+        }),
+      ]),
+    });
+
+    expect(threads[0]).toMatchObject({
+      sessionId: LIVE_SESSION,
+      sessionState: "WAITING_FOR_INPUT",
+    });
+  });
+
+  it("falls back to the cached pair only when the summary carries no session", () => {
+    const threads = selectActiveThreads({
+      "wf-1": snapshot("wf-1", "Delivery", [
+        task({
+          id: TASK_1,
+          primarySessionId: "cached-session",
+          primarySessionState: "RUNNING",
+          statusSummary: {
+            revision: 9,
+            updated_at: "2026-08-27T10:05:00Z",
+            queued_prompt_count: 2,
+          },
+        }),
+      ]),
+    });
+
+    expect(threads[0]).toMatchObject({
+      sessionId: "cached-session",
+      sessionState: "RUNNING",
+      queuedPromptCount: 2,
+    });
+  });
+});
+
+describe("selectActiveThreads — session source", () => {
   it("carries the workflow and step a thread belongs to", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
-        task({ id: "task-1", primarySessionId: "s-1", primarySessionState: "RUNNING" }),
+        task({ id: TASK_1, primarySessionId: "s-1", primarySessionState: "RUNNING" }),
       ]),
     });
 
@@ -190,7 +244,7 @@ describe("selectActiveThreads — thread contents and scope", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
         task({
-          id: "task-1",
+          id: TASK_1,
           workflowStepId: "deleted-step",
           primarySessionId: "s-1",
           primarySessionState: "RUNNING",
@@ -205,7 +259,7 @@ describe("selectActiveThreads — thread contents and scope", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
         task({
-          id: "task-1",
+          id: TASK_1,
           primarySessionId: "s-1",
           primarySessionState: "RUNNING",
           isArchived: true,
@@ -221,7 +275,7 @@ describe("selectActiveThreads — workspace scope", () => {
   it("merges threads from every workflow in the workspace", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
-        task({ id: "task-1", primarySessionId: "s-1", primarySessionState: "RUNNING" }),
+        task({ id: TASK_1, primarySessionId: "s-1", primarySessionState: "RUNNING" }),
       ]),
       "wf-2": snapshot("wf-2", "Support", [
         task({
@@ -240,7 +294,7 @@ describe("selectActiveThreads — workspace scope", () => {
     const threads = selectActiveThreads(
       {
         "wf-1": snapshot("wf-1", "Delivery", [
-          task({ id: "task-1", primarySessionId: "s-1", primarySessionState: "RUNNING" }),
+          task({ id: TASK_1, primarySessionId: "s-1", primarySessionState: "RUNNING" }),
         ]),
         "wf-2": snapshot("wf-2", "Support", [
           task({
@@ -259,9 +313,7 @@ describe("selectActiveThreads — workspace scope", () => {
 
   it("drops a thread whose session id is unknown, because it has nothing to show", () => {
     const threads = selectActiveThreads({
-      "wf-1": snapshot("wf-1", "Delivery", [
-        task({ id: "task-1", primarySessionState: "RUNNING" }),
-      ]),
+      "wf-1": snapshot("wf-1", "Delivery", [task({ id: TASK_1, primarySessionState: "RUNNING" })]),
     });
 
     expect(threads).toEqual([]);
