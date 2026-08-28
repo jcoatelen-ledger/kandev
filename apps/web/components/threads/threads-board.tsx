@@ -48,11 +48,6 @@ function ThreadsLoadingState() {
 }
 
 /**
- * The deck: every live agent conversation as its own column, scrolled
- * horizontally. Columns keep the order the selector gave them, so a thread the
- * reader is following does not jump while they read it.
- */
-/**
  * The deep-link mark answers "where is the column I asked for", so it retires
  * the moment the reader starts using the deck rather than sitting on a column
  * they have since moved away from. A later deep link earns a fresh mark, which
@@ -74,6 +69,11 @@ function useRetiringFocusMark(focusedTaskId: string | null) {
   };
 }
 
+/**
+ * The deck: every live agent conversation as its own column, scrolled
+ * horizontally. Columns keep the order the selector gave them, so a thread the
+ * reader is following does not jump while they read it.
+ */
 export function ThreadsBoard({
   threads,
   isLoading = false,

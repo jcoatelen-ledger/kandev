@@ -1,8 +1,15 @@
 import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const bootstrapMock = vi.hoisted(() => vi.fn());
 const searchMock = vi.hoisted(() => ({ value: "" }));
+const snapshotsMock = vi.hoisted(() => vi.fn());
+const displaySettingsMock = vi.hoisted(() => ({
+  activeWorkspaceId: "stored-workspace" as string | null,
+  activeWorkflowId: null as string | null,
+  workspaces: [] as Array<{ id: string }>,
+  workflows: [] as Array<{ id: string; workspaceId: string }>,
+}));
 
 vi.mock("@/lib/routing/client-router", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -12,15 +19,10 @@ vi.mock("@/src/kanban-route", () => ({ useKanbanRouteBootstrap: bootstrapMock })
 vi.mock("@/components/kanban/kanban-header", () => ({ KanbanHeader: () => null }));
 vi.mock("@/components/threads/threads-board", () => ({ ThreadsBoard: () => null }));
 vi.mock("@/hooks/domains/kanban/use-all-workflow-snapshots", () => ({
-  useAllWorkflowSnapshots: () => ({ refresh: vi.fn() }),
+  useAllWorkflowSnapshots: snapshotsMock,
 }));
 vi.mock("@/hooks/use-kanban-display-settings", () => ({
-  useKanbanDisplaySettings: () => ({
-    activeWorkspaceId: "stored-workspace",
-    activeWorkflowId: null,
-    workspaces: [],
-    workflows: [],
-  }),
+  useKanbanDisplaySettings: () => displaySettingsMock,
 }));
 vi.mock("@/hooks/use-task-listing-view", () => ({
   useTaskListingView: () => ({ setView: vi.fn() }),
@@ -35,7 +37,14 @@ import { scopeSnapshotsToWorkspace, ThreadsPageClient } from "./threads-page-cli
 afterEach(() => {
   cleanup();
   bootstrapMock.mockReset();
+  snapshotsMock.mockReset();
   searchMock.value = "";
+});
+
+beforeEach(() => {
+  snapshotsMock.mockImplementation(() => ({ refresh: vi.fn() }));
+  displaySettingsMock.workspaces = [];
+  displaySettingsMock.workflows = [];
 });
 
 describe("ThreadsPageClient — workspace deep links", () => {
@@ -48,6 +57,15 @@ describe("ThreadsPageClient — workspace deep links", () => {
       expect.objectContaining({ workspaceId: "requested-workspace" }),
       false,
     );
+  });
+
+  it("uses the stored workspace when the link names an unknown workspace", () => {
+    displaySettingsMock.workspaces = [{ id: "ws-a" }];
+    searchMock.value = "workspace=UNKNOWN";
+
+    render(<ThreadsPageClient />);
+
+    expect(snapshotsMock).toHaveBeenCalledWith("stored-workspace");
   });
 
   it("scopes snapshots to the requested workspace before effects clear stale data", () => {
