@@ -47,7 +47,7 @@ export function OpenInThreadsButton({
           className={STATUS_ROW_BUTTON_CLASS}
           aria-label={label}
           data-testid="open-in-threads-button"
-          onClick={() => router.push(linkToThreads(undefined, taskId))}
+          onClick={() => router.push(linkToThreads(undefined, taskId, sessionId ?? undefined))}
         >
           <IconColumns className="h-6 w-6" />
         </Button>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { KanbanState, WorkflowSnapshotData } from "@/lib/state/slices/kanban/types";
 import {
   isActiveThreadSession,
+  isThreadTaskEligible,
   resolveFocusedThreadId,
   selectActiveThreads,
   type ActiveThread,
@@ -10,6 +11,8 @@ import {
 const TASK_1 = "task-1";
 const LIVE_SESSION = "live-session";
 const SUMMARY_UPDATED_AT = "2026-08-27T10:05:00Z";
+const WAITING_FOR_INPUT = "WAITING_FOR_INPUT" as const;
+const OLDER_ACTIVITY = "2026-08-27T08:00:00Z";
 
 type TaskOverrides = Partial<KanbanState["tasks"][number]> & { id: string };
 
@@ -53,20 +56,20 @@ function snapshot(
   };
 }
 
-describe("selectActiveThreads", () => {
+describe("selectActiveThreads — eligibility", () => {
   it("keeps only tasks whose agent is running or waiting on a human", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
         task({ id: "running", primarySessionId: "s-1", primarySessionState: "RUNNING" }),
         task({ id: "starting", primarySessionId: "s-2", primarySessionState: "STARTING" }),
-        task({ id: "waiting", primarySessionId: "s-3", primarySessionState: "WAITING_FOR_INPUT" }),
+        task({ id: "waiting", primarySessionId: "s-3", primarySessionState: WAITING_FOR_INPUT }),
         task({ id: "done", primarySessionId: "s-4", primarySessionState: "COMPLETED" }),
         task({ id: "idle", primarySessionId: "s-5", primarySessionState: "IDLE" }),
         task({ id: "never-started" }),
       ]),
     });
 
-    expect(threads.map((thread) => thread.taskId)).toEqual(["waiting", "running", "starting"]);
+    expect(threads.map((thread) => thread.taskId)).toEqual(["running", "starting", "waiting"]);
   });
 
   it("keeps a parked session that is blocking on a question", () => {
@@ -85,7 +88,7 @@ describe("selectActiveThreads", () => {
     expect(threads[0].pendingAction).toBe("clarification");
   });
 
-  it("puts threads that need a human before threads that are still working", () => {
+  it("keeps ordinary waiting behind work when it has no explicit pending action", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
         task({
@@ -97,13 +100,55 @@ describe("selectActiveThreads", () => {
         task({
           id: "waiting",
           primarySessionId: "s-2",
-          primarySessionState: "WAITING_FOR_INPUT",
-          updatedAt: "2026-08-27T08:00:00Z",
+          primarySessionState: WAITING_FOR_INPUT,
+          updatedAt: OLDER_ACTIVITY,
         }),
       ]),
     });
 
-    expect(threads.map((thread) => thread.taskId)).toEqual(["waiting", "running"]);
+    expect(threads.map((thread) => thread.taskId)).toEqual(["running", "waiting"]);
+  });
+});
+
+describe("selectActiveThreads — ordering", () => {
+  it("ranks clarification and permission ahead of running and ordinary waiting", () => {
+    const threads = selectActiveThreads({
+      "wf-1": snapshot("wf-1", "Delivery", [
+        task({
+          id: "clarification",
+          primarySessionId: "s-1",
+          primarySessionState: "IDLE",
+          primarySessionPendingAction: "clarification",
+          updatedAt: "2026-08-27T09:00:00Z",
+        }),
+        task({
+          id: "permission",
+          primarySessionId: "s-2",
+          primarySessionState: "IDLE",
+          primarySessionPendingAction: "permission",
+          updatedAt: OLDER_ACTIVITY,
+        }),
+        task({
+          id: "running",
+          primarySessionId: "s-3",
+          primarySessionState: "RUNNING",
+          updatedAt: "2026-08-27T12:00:00Z",
+        }),
+        task({
+          id: "waiting",
+          primarySessionId: "s-4",
+          primarySessionState: WAITING_FOR_INPUT,
+          updatedAt: "2026-08-27T13:00:00Z",
+        }),
+      ]),
+    });
+
+    expect(threads.map((thread) => thread.taskId)).toEqual([
+      "clarification",
+      "permission",
+      "running",
+      "waiting",
+    ]);
   });
 
   it("orders threads in the same bucket by most recent activity", () => {
@@ -113,7 +158,7 @@ describe("selectActiveThreads", () => {
           id: "older",
           primarySessionId: "s-1",
           primarySessionState: "RUNNING",
-          updatedAt: "2026-08-27T08:00:00Z",
+          updatedAt: OLDER_ACTIVITY,
         }),
         task({
           id: "newer",
@@ -130,7 +175,7 @@ describe("selectActiveThreads", () => {
   it("breaks an activity tie on task id so columns never shuffle between renders", () => {
     const tied = {
       primarySessionState: "RUNNING" as const,
-      updatedAt: "2026-08-27T08:00:00Z",
+      updatedAt: OLDER_ACTIVITY,
     };
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
@@ -143,7 +188,7 @@ describe("selectActiveThreads", () => {
   });
 });
 
-describe("selectActiveThreads — thread contents and scope", () => {
+describe("selectActiveThreads — thread contents", () => {
   it("does not attribute a secondary session's pending action to the primary", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
@@ -172,6 +217,28 @@ describe("selectActiveThreads — thread contents and scope", () => {
     ]);
   });
 
+  it("keeps a review outcome in the deck after the primary turn completes", () => {
+    const threads = selectActiveThreads({
+      "wf-1": snapshot("wf-1", "Delivery", [
+        task({
+          id: TASK_1,
+          primarySessionId: LIVE_SESSION,
+          primarySessionState: "COMPLETED",
+          state: "REVIEW",
+          reviewStatus: "pending",
+        }),
+      ]),
+    });
+
+    expect(threads[0]).toMatchObject({
+      taskId: TASK_1,
+      taskState: "REVIEW",
+      reviewStatus: "pending",
+    });
+  });
+});
+
+describe("selectActiveThreads — summary source", () => {
   it("prefers the live status summary over the cached primary-session fields", () => {
     const threads = selectActiveThreads({
       "wf-1": snapshot("wf-1", "Delivery", [
@@ -217,7 +284,7 @@ describe("selectActiveThreads — thread contents and scope", () => {
           statusSummary: {
             revision: 9,
             updated_at: SUMMARY_UPDATED_AT,
-            primary_session: { id: LIVE_SESSION, state: "WAITING_FOR_INPUT" },
+            primary_session: { id: LIVE_SESSION, state: WAITING_FOR_INPUT },
           },
         }),
       ]),
@@ -225,7 +292,7 @@ describe("selectActiveThreads — thread contents and scope", () => {
 
     expect(threads[0]).toMatchObject({
       sessionId: LIVE_SESSION,
-      sessionState: "WAITING_FOR_INPUT",
+      sessionState: WAITING_FOR_INPUT,
     });
   });
 
@@ -351,7 +418,7 @@ describe("selectActiveThreads — workspace scope", () => {
 
 describe("isActiveThreadSession", () => {
   it("accepts a primary session the deck would show a column for", () => {
-    for (const state of ["RUNNING", "STARTING", "WAITING_FOR_INPUT"] as const) {
+    for (const state of ["RUNNING", "STARTING", WAITING_FOR_INPUT] as const) {
       expect(isActiveThreadSession({ isPrimary: true, state })).toBe(true);
     }
   });
@@ -374,6 +441,28 @@ describe("isActiveThreadSession", () => {
 
   it("rejects a session whose state is unknown", () => {
     expect(isActiveThreadSession({ isPrimary: true, state: null })).toBe(false);
+  });
+});
+
+describe("isThreadTaskEligible", () => {
+  it("keeps a completed primary session eligible when the task awaits review", () => {
+    expect(
+      isThreadTaskEligible({
+        taskState: "REVIEW",
+        reviewStatus: "pending",
+        primarySession: { state: "COMPLETED" },
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects a completed primary session without a review outcome", () => {
+    expect(
+      isThreadTaskEligible({
+        taskState: "COMPLETED",
+        reviewStatus: "approved",
+        primarySession: { state: "COMPLETED" },
+      }),
+    ).toBe(false);
   });
 });
 

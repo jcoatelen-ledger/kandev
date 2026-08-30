@@ -16,11 +16,12 @@ into across the deck, then slides it back when the turn ends. The E2E
 `holds a column's slot and the deck's scroll while you reply to it` fails if this
 is undone.
 
-A task reaches the deck only through its **primary** session, matching the
-backend's `GetPrimarySessionIDsByTaskIDs`. Sessions created by the E2E seed
-harness are never primary, so a spec has to run a real agent turn (create the
-task with an agent, open the task page to launch the session, then wait) rather
-than seeding a RUNNING row.
+A task reaches the deck through its **primary** session, matching the backend's
+`GetPrimarySessionIDsByTaskIDs`. Once that task column is present, the Threads
+switcher can select any existing sibling session, including a settled one.
+Sessions created by the E2E seed harness are never primary, so a spec has to
+run a real agent turn (create the task with an agent, open the task page to
+launch the session, then wait) rather than seeding a RUNNING row.
 
 Columns mount `TaskChatPanel` with **no `onSend`**. Its own submit path is what
 honours the session's queue input mode, the selected model, plan mode, context
@@ -47,10 +48,11 @@ a task-overview href would leave the deck rendered under a Home URL.
 
 ## Round trip with the task page
 
-`linkToThreads(workspaceId, taskId)` produces `/threads?taskId=…`, which asks the
-deck to scroll that column into view and ring it. The focus id is resolved
-against the rendered deck (`resolveFocusedThreadId`), never trusted from the URL:
-the thread may have settled between the link being offered and followed.
+`linkToThreads(workspaceId, taskId, sessionId)` produces `/threads?taskId=…` and,
+when supplied, the target session id. The link asks the deck to scroll that
+column into view and ring it. The focus id is resolved against the rendered
+deck (`resolveFocusedThreadId`), never trusted from the URL: the thread may
+have settled between the link being offered and followed.
 
 The scroll effect is keyed on `isFocused` and the column is keyed by task id, so
 a column that only mounts once a later snapshot lands still scrolls, while a
@@ -64,9 +66,11 @@ swallowed by an earlier dismissal.
 `OpenInThreadsButton` is the other half, living in the chat status row. It has
 two gates, and both matter:
 
-- `useIsDeckThread` — the session must be the task's live primary thread, so the
-  button is never a dead end. It reads already-loaded sessions and must not
-  fetch; a status-row control triggering a request would be a surprise.
+- `useIsDeckThread` — the session must belong to a task with a Threads column,
+  which can come from a live primary or a task-level review outcome. It reads
+  already-loaded sessions and the cached task summary/state and must not fetch;
+  a status-row control triggering a request would be a surprise. A settled
+  sibling is therefore eligible when that task keeps a column in the deck.
 - pathname — the deck's own columns render the same chat panel, so without this
   the button would appear inside every column offering a jump to the view
   already on screen.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -903,7 +904,7 @@ func (s *Service) publishMessageEvent(ctx context.Context, eventType string, mes
 		return errors.New("event bus is unavailable")
 	}
 	event := newMessageEvent(eventType, message)
-	s.addMessagePendingAction(ctx, eventType, message, event)
+	pendingProjection := s.addMessagePendingAction(ctx, eventType, message, event)
 	if err := s.eventBus.Publish(ctx, eventType, event); err != nil {
 		s.logger.Error("failed to publish message event",
 			zap.String("event_type", eventType),
@@ -911,7 +912,21 @@ func (s *Service) publishMessageEvent(ctx context.Context, eventType string, mes
 			zap.Error(err))
 		return err
 	}
+	if pendingProjection != nil {
+		s.publishSessionPendingActionChanged(ctx, message, *pendingProjection)
+	}
 	return nil
+}
+
+type pendingActionProjection struct {
+	action   models.TaskPendingAction
+	revision models.PendingActionRevision
+	changed  bool
+}
+
+type pendingActionProjectionState struct {
+	action   models.TaskPendingAction
+	revision models.PendingActionRevision
 }
 
 func (s *Service) addMessagePendingAction(
@@ -919,11 +934,11 @@ func (s *Service) addMessagePendingAction(
 	eventType string,
 	message *models.Message,
 	event *bus.Event,
-) {
+) *pendingActionProjection {
 	if s.messages == nil ||
 		!messageEventChangesPendingAction(eventType, message) ||
 		message.TaskSessionID == "" {
-		return
+		return nil
 	}
 	actions, revisions, err := s.GetPendingActionProjectionsForSessions(
 		ctx,
@@ -934,18 +949,114 @@ func (s *Service) addMessagePendingAction(
 			zap.String("event_type", eventType),
 			zap.String("message_id", message.ID),
 			zap.Error(err))
-		return
+		return nil
 	}
 	data, ok := event.Data.(map[string]interface{})
 	if !ok {
-		return
+		return nil
 	}
-	if action, ok := actions[message.TaskSessionID]; ok {
+	action := models.TaskPendingAction("")
+	if projected, ok := actions[message.TaskSessionID]; ok {
+		action = projected
 		data["pending_action"] = string(action)
 	} else {
 		data["pending_action"] = nil
 	}
-	data["pending_action_revision"] = revisions[message.TaskSessionID]
+	revision := revisions[message.TaskSessionID]
+	data["pending_action_revision"] = revision
+	return &pendingActionProjection{
+		action:   action,
+		revision: revision,
+		changed:  s.pendingActionProjectionChanged(message.TaskSessionID, action, revision),
+	}
+}
+
+func (s *Service) pendingActionProjectionChanged(
+	sessionID string,
+	action models.TaskPendingAction,
+	revision models.PendingActionRevision,
+) bool {
+	s.pendingActionProjectionMu.Lock()
+	defer s.pendingActionProjectionMu.Unlock()
+
+	if s.lastPendingActionProjections == nil {
+		s.lastPendingActionProjections = make(map[string]pendingActionProjectionState)
+	}
+	previous, exists := s.lastPendingActionProjections[sessionID]
+	if exists && !pendingActionRevisionAfter(revision, previous.revision) {
+		return false
+	}
+	s.lastPendingActionProjections[sessionID] = pendingActionProjectionState{
+		action:   action,
+		revision: revision,
+	}
+	return !exists || previous.action != action
+}
+
+func pendingActionRevisionAfter(
+	incoming models.PendingActionRevision,
+	existing models.PendingActionRevision,
+) bool {
+	if incoming.Epoch != existing.Epoch {
+		incomingEpoch, incomingErr := strconv.ParseUint(incoming.Epoch, 10, 64)
+		existingEpoch, existingErr := strconv.ParseUint(existing.Epoch, 10, 64)
+		if incomingErr == nil && existingErr == nil {
+			return incomingEpoch > existingEpoch
+		}
+		return incoming.Epoch > existing.Epoch
+	}
+	return incoming.Sequence > existing.Sequence
+}
+
+func (s *Service) publishSessionPendingActionChanged(
+	ctx context.Context,
+	message *models.Message,
+	projection pendingActionProjection,
+) {
+	if !projection.changed || message == nil || message.TaskSessionID == "" || s.tasks == nil {
+		return
+	}
+	taskID := message.TaskID
+	if taskID == "" && s.sessions != nil {
+		session, err := s.sessions.GetTaskSession(ctx, message.TaskSessionID)
+		if err != nil || session == nil {
+			s.logger.Warn("failed to resolve task for pending-action event",
+				zap.String("session_id", message.TaskSessionID), zap.Error(err))
+			return
+		}
+		taskID = session.TaskID
+	}
+	if taskID == "" {
+		return
+	}
+	task, err := s.tasks.GetTask(ctx, taskID)
+	if err != nil || task == nil || task.WorkspaceID == "" {
+		// This event is workspace-scoped. Drop it when the owner cannot be
+		// established instead of allowing the gateway to fan it out globally.
+		s.logger.Warn("failed to resolve workspace for pending-action event",
+			zap.String("task_id", taskID),
+			zap.String("session_id", message.TaskSessionID),
+			zap.Error(err))
+		return
+	}
+	pendingAction := interface{}(nil)
+	if projection.action != "" {
+		pendingAction = string(projection.action)
+	}
+	data := map[string]interface{}{
+		"workspace_id":            task.WorkspaceID,
+		"task_id":                 taskID,
+		"session_id":              message.TaskSessionID,
+		"pending_action":          pendingAction,
+		"pending_action_revision": projection.revision,
+	}
+	event := bus.NewEvent(events.SessionPendingActionChanged, "task-service", data)
+	if err := s.eventBus.Publish(ctx, events.SessionPendingActionChanged, event); err != nil {
+		s.logger.Warn("failed to publish compact pending-action event",
+			zap.String("task_id", taskID),
+			zap.String("session_id", message.TaskSessionID),
+			zap.Error(err))
+	}
 }
 
 func messageEventChangesPendingAction(eventType string, message *models.Message) bool {

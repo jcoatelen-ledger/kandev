@@ -28,6 +28,7 @@ export const defaultState = {
   kanbanMulti: defaultKanbanState.kanbanMulti,
   sidebarArchivedTasks: defaultKanbanState.sidebarArchivedTasks,
   workflows: defaultKanbanState.workflows,
+  workspaceContextGeneration: defaultKanbanState.workspaceContextGeneration,
   tasks: defaultKanbanState.tasks,
   workspaces: defaultWorkspaceState.workspaces,
   repositories: defaultWorkspaceState.repositories,
@@ -51,6 +52,7 @@ export const defaultState = {
   turns: defaultSessionState.turns,
   taskSessions: defaultSessionState.taskSessions,
   taskSessionsByTask: defaultSessionState.taskSessionsByTask,
+  pendingActionProjectionsBySessionId: defaultSessionState.pendingActionProjectionsBySessionId,
   sessionAgentctl: defaultSessionState.sessionAgentctl,
   worktrees: defaultSessionState.worktrees,
   sessionWorktreesBySessionId: defaultSessionState.sessionWorktreesBySessionId,
@@ -312,6 +314,36 @@ function mergeTurnsState(
   return { ...merged, loadedBySession, settledBoundaryBySession };
 }
 
+function mergeTaskSessionState(initialState: HydrationState) {
+  return {
+    taskSessions: { ...defaultState.taskSessions, ...initialState.taskSessions },
+    taskSessionsByTask: {
+      ...defaultState.taskSessionsByTask,
+      ...initialState.taskSessionsByTask,
+      itemsByTaskId: {
+        ...defaultState.taskSessionsByTask.itemsByTaskId,
+        ...initialState.taskSessionsByTask?.itemsByTaskId,
+      },
+      loadingByTaskId: {
+        ...defaultState.taskSessionsByTask.loadingByTaskId,
+        ...initialState.taskSessionsByTask?.loadingByTaskId,
+      },
+      loadedByTaskId: {
+        ...defaultState.taskSessionsByTask.loadedByTaskId,
+        ...initialState.taskSessionsByTask?.loadedByTaskId,
+      },
+      errorByTaskId: {
+        ...defaultState.taskSessionsByTask.errorByTaskId,
+        ...initialState.taskSessionsByTask?.errorByTaskId,
+      },
+    },
+    pendingActionProjectionsBySessionId: {
+      ...defaultState.pendingActionProjectionsBySessionId,
+      ...initialState.pendingActionProjectionsBySessionId,
+    },
+  };
+}
+
 /**
  * Builds the full default state from the SSR/boot hydration payload, merging
  * per-slice (kanban, turns, settings, ...) so partial payloads never clobber
@@ -325,6 +357,8 @@ export function mergeInitialState(initialState?: HydrationState): DefaultState {
     kanban: { ...defaultState.kanban, ...initialState.kanban },
     kanbanMulti: { ...defaultState.kanbanMulti, ...initialState.kanbanMulti },
     workflows: { ...defaultState.workflows, ...initialState.workflows },
+    workspaceContextGeneration:
+      initialState.workspaceContextGeneration ?? defaultState.workspaceContextGeneration,
     tasks: { ...defaultState.tasks, ...initialState.tasks },
     workspaces: { ...defaultState.workspaces, ...initialState.workspaces },
     repositories: { ...defaultState.repositories, ...initialState.repositories },
@@ -352,8 +386,7 @@ export function mergeInitialState(initialState?: HydrationState): DefaultState {
     userSettings: { ...defaultState.userSettings, ...initialState.userSettings },
     messages: { ...defaultState.messages, ...initialState.messages },
     turns: mergeTurnsState(defaultState.turns, initialState.turns, initialState.taskSessions),
-    taskSessions: { ...defaultState.taskSessions, ...initialState.taskSessions },
-    taskSessionsByTask: { ...defaultState.taskSessionsByTask, ...initialState.taskSessionsByTask },
+    ...mergeTaskSessionState(initialState),
     sessionAgentctl: { ...defaultState.sessionAgentctl, ...initialState.sessionAgentctl },
     worktrees: { ...defaultState.worktrees, ...initialState.worktrees },
     sessionWorktreesBySessionId: {

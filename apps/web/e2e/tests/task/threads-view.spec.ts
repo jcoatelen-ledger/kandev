@@ -3,17 +3,55 @@ import { test } from "../../fixtures/test-base";
 import type { SeedData } from "../../fixtures/test-base";
 import type { ApiClient } from "../../helpers/api-client";
 import { KanbanPage } from "../../pages/kanban-page";
+import { seedSecondaryClarificationTask } from "../../helpers/clarification";
 import { createStandardProfile, openTaskSession } from "../../helpers/git-helper";
 import { waitForLatestSessionDone } from "../../helpers/session";
+import { attachGatewayTrafficCapture, type GatewayTrafficFrame } from "../../helpers/ws-traffic";
 
 const AGENT_TITLE = "Threads live agent work";
 const SECOND_TITLE = "Threads second live agent work";
 const IDLE_TITLE = "Threads never started";
 
+function sentSessionIds(frames: readonly GatewayTrafficFrame[], action: string): string[] {
+  return frames
+    .filter((frame) => frame.direction === "sent" && frame.action === action && frame.sessionId)
+    .map((frame) => frame.sessionId as string);
+}
+
+function activeSessionIds(frames: readonly GatewayTrafficFrame[]): string[] {
+  const active = new Set<string>();
+  for (const frame of frames) {
+    if (frame.direction !== "sent" || !frame.sessionId) continue;
+    if (frame.action === "session.subscribe") active.add(frame.sessionId);
+    if (frame.action === "session.unsubscribe") active.delete(frame.sessionId);
+  }
+  return [...active];
+}
+
+function columnOrder(board: Locator): Promise<string[]> {
+  return board
+    .locator("[data-thread-column-id]")
+    .evaluateAll((columns) =>
+      columns.map((column) => column.getAttribute("data-thread-column-id") ?? ""),
+    );
+}
+
+async function visibleColumnTaskIds(board: Locator): Promise<string[]> {
+  return board.evaluate((node) => {
+    const boardRect = node.getBoundingClientRect();
+    return [...node.querySelectorAll<HTMLElement>("[data-thread-column-id]")]
+      .filter((column) => {
+        const rect = column.getBoundingClientRect();
+        return rect.right > boardRect.left && rect.left < boardRect.right;
+      })
+      .map((column) => column.dataset.threadColumnId ?? "");
+  });
+}
+
 /**
- * Runs a real agent turn so the task ends with a primary session in
- * WAITING_FOR_INPUT. Seeded sessions are never marked primary, and the deck
- * follows production's primary-session rule, so they would not appear.
+ * Runs a real agent turn so the task ends with a settled primary session.
+ * Seeded sessions are never marked primary, and the deck follows production's
+ * primary-session rule, so they would not appear.
  *
  * The task page is what launches the session (`useEnsureTaskSession`), so
  * opening it is part of arranging the fixture, not an assertion.
@@ -62,8 +100,8 @@ test.describe("Threads view", () => {
     const column = testPage.getByTestId(`thread-column-${live.id}`);
     await expect(column).toBeVisible();
     await expect(column).toContainText(AGENT_TITLE);
-    // The turn ended on a question, so the deck reports it as blocked on a person.
-    await expect(column.getByTestId("thread-status-needs-you")).toBeVisible();
+    // The simple workflow moves the completed task into its review step.
+    await expect(column.getByTestId("thread-status-review-ready")).toBeVisible();
     await expect(testPage.getByTestId(`thread-column-${idle.task_id}`)).toHaveCount(0);
   });
 
@@ -225,7 +263,9 @@ test.describe("Threads view", () => {
     // A whole turn's worth of task updates reaches the deck before this
     // resolves, which is more than enough re-ranking pressure to move a column.
     await waitForLatestSessionDone(apiClient, targetTaskId, 1, "reply turn never settled");
-    await expect(target.getByTestId("thread-status-needs-you")).toBeVisible({ timeout: 30_000 });
+    await expect(target.getByTestId("thread-status-review-ready")).toBeVisible({
+      timeout: 30_000,
+    });
 
     expect(await columnIds()).toEqual(orderBefore);
     expect(await board.evaluate((node) => node.scrollLeft)).toBe(scrollBefore);
@@ -244,5 +284,201 @@ test.describe("Threads view", () => {
     await testPage.goto("/threads");
     await expect(testPage.getByTestId("threads-empty-state")).toBeVisible();
     await expect(testPage.getByTestId("threads-board")).toHaveCount(0);
+  });
+
+  test("switches sessions and bounds desktop detail streams to the viewport", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(300_000);
+    const target = await seedSecondaryClarificationTask(
+      apiClient,
+      seedData,
+      "Threads multi-session target",
+    );
+    const first = await startAgentTask(testPage, apiClient, seedData, "threads-window-first", {
+      title: "Threads window first",
+    });
+    const second = await startAgentTask(testPage, apiClient, seedData, "threads-window-second", {
+      title: "Threads window second",
+    });
+    const third = await startAgentTask(testPage, apiClient, seedData, "threads-window-third", {
+      title: "Threads window third",
+    });
+
+    const sessionByTask = new Map([
+      [target.id, target.primarySessionId],
+      [first.id, first.session_id],
+      [second.id, second.session_id],
+      [third.id, third.session_id],
+    ]);
+    const capture = attachGatewayTrafficCapture(testPage);
+    await testPage.goto(`/threads?taskId=${target.id}&sessionId=${target.clarificationSessionId}`);
+
+    const board = testPage.getByTestId("threads-board");
+    await expect(board).toBeVisible();
+    await expect(board.locator("[data-thread-column-id]")).toHaveCount(4);
+    const targetColumn = testPage.getByTestId(`thread-column-${target.id}`);
+    const primaryTab = targetColumn.getByTestId(`thread-session-tab-${target.primarySessionId}`);
+    const siblingTab = targetColumn.getByTestId(
+      `thread-session-tab-${target.clarificationSessionId}`,
+    );
+    await expect(primaryTab).toBeVisible();
+    await expect(siblingTab).toBeVisible();
+    await expect(siblingTab).toHaveAttribute("data-state", "active");
+    await siblingTab
+      .locator("span")
+      .last()
+      .evaluate((node) => {
+        node.textContent =
+          "A session label that is intentionally much longer than the compact metadata row";
+      });
+    const desktopTabGeometry = await targetColumn.evaluate((column) => {
+      const switcher = column.querySelector<HTMLElement>('[data-testid="thread-session-switcher"]');
+      return {
+        columnOverflow: column.scrollWidth > column.clientWidth,
+        switcherOverflow: switcher ? switcher.scrollWidth > switcher.clientWidth : true,
+        documentOverflow:
+          document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+    expect(desktopTabGeometry).toEqual({
+      columnOverflow: false,
+      switcherOverflow: false,
+      documentOverflow: false,
+    });
+    await expect(testPage).toHaveURL(
+      new RegExp(`taskId=${target.id}.*sessionId=${target.clarificationSessionId}`),
+    );
+
+    await expect
+      .poll(() => sentSessionIds(capture.frames, "session.subscribe"), {
+        timeout: 30_000,
+        message: "Threads did not subscribe the deep-linked sibling",
+      })
+      .toContain(target.clarificationSessionId);
+
+    const initialVisibleTaskIds = await visibleColumnTaskIds(board);
+    const initialExpectedSessionIds = initialVisibleTaskIds
+      .map((taskId) =>
+        taskId === target.id ? target.clarificationSessionId : sessionByTask.get(taskId),
+      )
+      .filter((sessionId): sessionId is string => Boolean(sessionId));
+    await expect
+      .poll(
+        () => {
+          const subscribed = new Set(sentSessionIds(capture.frames, "session.subscribe"));
+          return initialExpectedSessionIds.every((sessionId) => subscribed.has(sessionId));
+        },
+        { timeout: 30_000, message: "visible task columns did not activate their sessions" },
+      )
+      .toBe(true);
+
+    const initialSubscribed = new Set(activeSessionIds(capture.frames));
+    expect(initialSubscribed).toEqual(new Set(initialExpectedSessionIds));
+    expect(initialSubscribed).not.toContain(target.primarySessionId);
+    expect(
+      sentSessionIds(capture.frames, "message.list"),
+      "the unselected sibling must not request a transcript",
+    ).not.toContain(target.primarySessionId);
+    await expect(targetColumn.getByRole("button", { name: /add|new/i })).toHaveCount(0);
+
+    // The session linked from the task page is a settled clarification sibling.
+    // Switching back to the primary replaces only this column's detail stream;
+    // the sibling remains visible as an exact inactive status item.
+    await primaryTab.click();
+    await expect(primaryTab).toHaveAttribute("data-state", "active");
+    await expect(siblingTab.locator('[aria-label="Question from agent"]')).toBeVisible();
+    await expect
+      .poll(() => sentSessionIds(capture.frames, "session.subscribe"), {
+        timeout: 30_000,
+        message: "switching tabs did not subscribe the primary session",
+      })
+      .toContain(target.primarySessionId);
+    await expect
+      .poll(() => sentSessionIds(capture.frames, "session.unsubscribe"), {
+        timeout: 30_000,
+        message: "switching tabs did not release the sibling session",
+      })
+      .toContain(target.clarificationSessionId);
+
+    const reviewTask = first.id;
+    await apiClient.updateTaskState(reviewTask, "REVIEW");
+    await expect
+      .poll(() => apiClient.getTask(reviewTask).then((task) => task.state))
+      .toBe("REVIEW");
+    await expect(testPage.getByTestId(`thread-column-${reviewTask}`)).toContainText(
+      "Ready for review",
+    );
+    await expect(
+      testPage.getByTestId(`thread-column-${reviewTask}`).getByTestId("thread-status-review-ready"),
+    ).toBeVisible();
+
+    const orderBeforeScroll = await columnOrder(board);
+    const visibleBeforeScroll = await visibleColumnTaskIds(board);
+    const allTaskIds = [target.id, first.id, second.id, third.id];
+    const scrollTargetTaskId =
+      allTaskIds.find((taskId) => !visibleBeforeScroll.includes(taskId)) ?? allTaskIds.at(-1);
+    if (!scrollTargetTaskId) throw new Error("Threads did not produce a scroll target");
+    const scrollTargetSessionId =
+      scrollTargetTaskId === target.id
+        ? target.primarySessionId
+        : sessionByTask.get(scrollTargetTaskId);
+    if (!scrollTargetSessionId) throw new Error("Threads scroll target has no session");
+    const scrollBefore = await board.evaluate((node) => node.scrollLeft);
+    const scrollTarget = testPage.getByTestId(`thread-column-${scrollTargetTaskId}`);
+    await scrollTarget.evaluate((column) =>
+      column.scrollIntoView({ inline: "end", block: "nearest" }),
+    );
+    await expect
+      .poll(() => board.evaluate((node) => node.scrollLeft), {
+        timeout: 15_000,
+        message: "horizontal scroll did not move the Threads board",
+      })
+      .not.toBe(scrollBefore);
+    await expect
+      .poll(() => sentSessionIds(capture.frames, "session.subscribe"), {
+        timeout: 30_000,
+        message: "scrolling did not activate the newly visible session",
+      })
+      .toContain(scrollTargetSessionId);
+    const visibleAfterScroll = await visibleColumnTaskIds(board);
+    const departedSessionIds = visibleBeforeScroll
+      .filter((taskId) => !visibleAfterScroll.includes(taskId))
+      .map((taskId) => (taskId === target.id ? target.primarySessionId : sessionByTask.get(taskId)))
+      .filter((sessionId): sessionId is string => Boolean(sessionId));
+    await expect
+      .poll(
+        () =>
+          departedSessionIds.some((sessionId) =>
+            sentSessionIds(capture.frames, "session.unsubscribe").includes(sessionId),
+          ),
+        {
+          timeout: 30_000,
+          message: "scrolling did not release the departed detail",
+        },
+      )
+      .toBe(true);
+    expect(await columnOrder(board)).toEqual(orderBeforeScroll);
+
+    await test.info().attach("threads-desktop-subscription-evidence.json", {
+      body: JSON.stringify(
+        {
+          initialVisibleTaskIds,
+          initialExpectedSessionIds,
+          initialSubscribed: [...initialSubscribed],
+          subscribeSessionIds: sentSessionIds(capture.frames, "session.subscribe"),
+          unsubscribeSessionIds: sentSessionIds(capture.frames, "session.unsubscribe"),
+          visibleBeforeScroll,
+          visibleAfterScroll,
+          scrollTargetTaskId,
+          columnOrder: orderBeforeScroll,
+        },
+        null,
+        2,
+      ),
+      contentType: "application/json",
+    });
   });
 });

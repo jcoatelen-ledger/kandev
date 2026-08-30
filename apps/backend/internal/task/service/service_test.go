@@ -3257,7 +3257,7 @@ func TestService_ClarificationMessageEventsCarryPendingActionProjection(t *testi
 	if err != nil {
 		t.Fatalf("CreateMessage: %v", err)
 	}
-	addedData := singlePublishedEventData(t, eventBus)
+	addedData := singlePublishedEventDataOfType(t, eventBus, events.MessageAdded)
 	if got := addedData["pending_action"]; got != "clarification" {
 		t.Fatalf("message.added pending_action = %#v, want clarification", got)
 	}
@@ -3271,7 +3271,7 @@ func TestService_ClarificationMessageEventsCarryPendingActionProjection(t *testi
 	if err := svc.UpdateMessage(ctx, message); err != nil {
 		t.Fatalf("UpdateMessage: %v", err)
 	}
-	data := singlePublishedEventData(t, eventBus)
+	data := singlePublishedEventDataOfType(t, eventBus, events.MessageUpdated)
 	if got, ok := data["pending_action"]; !ok || got != nil {
 		t.Fatalf("message.updated pending_action = %#v, want explicit nil", got)
 	}
@@ -3324,7 +3324,7 @@ func TestService_OrdinaryMessageAuthorityEventsRefreshPendingAction(t *testing.T
 	if err != nil {
 		t.Fatalf("create successor message: %v", err)
 	}
-	added := singlePublishedEventData(t, eventBus)
+	added := singlePublishedEventDataOfType(t, eventBus, events.MessageAdded)
 	if got, exists := added["pending_action"]; !exists || got != nil {
 		t.Fatalf("ordinary message.added pending_action = %#v, want explicit nil", got)
 	}
@@ -3333,7 +3333,7 @@ func TestService_OrdinaryMessageAuthorityEventsRefreshPendingAction(t *testing.T
 	if err := svc.DeleteMessage(ctx, ordinary.ID); err != nil {
 		t.Fatalf("DeleteMessage: %v", err)
 	}
-	deleted := singlePublishedEventData(t, eventBus)
+	deleted := singlePublishedEventDataOfType(t, eventBus, events.MessageDeleted)
 	if got := deleted["pending_action"]; got != "clarification" {
 		t.Fatalf("ordinary message.deleted pending_action = %#v, want clarification", got)
 	}

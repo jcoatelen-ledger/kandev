@@ -1,5 +1,10 @@
 import type { KanbanState, WorkflowSnapshotData } from "@/lib/state/slices/kanban/types";
-import type { TaskPendingAction, TaskSessionState } from "@/lib/types/http";
+import type {
+  TaskPendingAction,
+  TaskSessionState,
+  TaskState,
+  WorkflowReviewStatus,
+} from "@/lib/types/http";
 
 type KanbanTask = KanbanState["tasks"][number];
 
@@ -19,6 +24,10 @@ export type ActiveThread = {
   sessionId: string;
   sessionState: TaskSessionState;
   pendingAction: TaskPendingAction | null;
+  /** Aggregate action across the task, never attributed to `sessionId`. */
+  taskPendingAction?: TaskPendingAction | null;
+  taskState?: TaskState | null;
+  reviewStatus?: WorkflowReviewStatus | null;
   activeSubagentCount: number;
   queuedPromptCount: number;
   lastActivityAt: string | null;
@@ -30,6 +39,7 @@ export type ActiveThread = {
  */
 const NEEDS_HUMAN = 0;
 const WORKING = 1;
+const WAITING = 2;
 
 const WORKING_STATES: TaskSessionState[] = ["RUNNING", "STARTING"];
 
@@ -46,6 +56,27 @@ function resolvePendingAction(task: KanbanTask): TaskPendingAction | null {
   // aggregate here can attribute a child session's request to the wrong
   // conversation.
   return task.primarySessionPendingAction ?? null;
+}
+
+export function resolveTaskPendingAction(task: KanbanTask): TaskPendingAction | null {
+  const summaryAction = task.statusSummary?.pending_action;
+  return summaryAction !== undefined ? summaryAction : (task.taskPendingAction ?? null);
+}
+
+function isReviewOutcome(task: KanbanTask): boolean {
+  return task.state === "REVIEW" || task.reviewStatus === "pending";
+}
+
+function resolveThreadBucket(
+  task: KanbanTask,
+  session: ThreadSession,
+  taskPendingAction: TaskPendingAction | null,
+): number | null {
+  const sessionBucket = attentionBucket(session);
+  if (sessionBucket !== null) return sessionBucket;
+  if (taskPendingAction) return NEEDS_HUMAN;
+  if (isReviewOutcome(task)) return WORKING;
+  return null;
 }
 
 function resolveLastActivityAt(task: KanbanTask): string | null {
@@ -72,8 +103,39 @@ function attentionBucket(session: {
   state: TaskSessionState | null | undefined;
   pendingAction?: TaskPendingAction | null;
 }): number | null {
-  if (session.pendingAction || session.state === "WAITING_FOR_INPUT") return NEEDS_HUMAN;
-  return session.state && WORKING_STATES.includes(session.state) ? WORKING : null;
+  if (session.pendingAction) return NEEDS_HUMAN;
+  if (session.state && WORKING_STATES.includes(session.state)) return WORKING;
+  return session.state === "WAITING_FOR_INPUT" ? WAITING : null;
+}
+
+export type ThreadTaskEligibilityInput = {
+  taskState?: TaskState | null;
+  reviewStatus?: WorkflowReviewStatus | null;
+  taskPendingAction?: TaskPendingAction | null;
+  primarySession?: {
+    state: TaskSessionState | null | undefined;
+    pendingAction?: TaskPendingAction | null;
+  } | null;
+};
+
+/**
+ * Whether a task has a column in the Threads deck, independent of which
+ * conversation a task-detail page currently has selected.
+ */
+export function isThreadTaskEligible({
+  taskState,
+  reviewStatus,
+  taskPendingAction,
+  primarySession,
+}: ThreadTaskEligibilityInput): boolean {
+  if (taskPendingAction || taskState === "REVIEW" || reviewStatus === "pending") return true;
+  return primarySession
+    ? isActiveThreadSession({
+        isPrimary: true,
+        state: primarySession.state,
+        pendingAction: primarySession.pendingAction,
+      })
+    : false;
 }
 
 /**
@@ -105,17 +167,23 @@ export function resolveFocusedThreadId(
   return threads.some((thread) => thread.taskId === requestedTaskId) ? requestedTaskId : null;
 }
 
-function toThread(
-  task: KanbanTask,
-  snapshot: WorkflowSnapshotData,
-  stepTitles: Map<string, string>,
-): (ActiveThread & { bucket: number }) | null {
-  if (task.isArchived) return null;
-  const session = resolveThreadSession(task);
-  const bucket = attentionBucket(session);
-  // A thread with no session id has no conversation to render, so a column for
-  // it would be an empty promise rather than a view of live work.
-  if (bucket === null || !session.id || !session.state) return null;
+type ThreadBuildInput = {
+  task: KanbanTask;
+  snapshot: WorkflowSnapshotData;
+  stepTitles: Map<string, string>;
+  session: ThreadSession;
+  taskPendingAction: TaskPendingAction | null;
+  bucket: number;
+};
+
+function buildThread({
+  task,
+  snapshot,
+  stepTitles,
+  session,
+  taskPendingAction,
+  bucket,
+}: ThreadBuildInput): ActiveThread & { bucket: number } {
   return {
     bucket,
     taskId: task.id,
@@ -123,13 +191,41 @@ function toThread(
     workflowId: snapshot.workflowId,
     workflowName: snapshot.workflowName,
     stepTitle: stepTitles.get(task.workflowStepId) ?? null,
-    sessionId: session.id,
-    sessionState: session.state,
+    sessionId: session.id as string,
+    sessionState: session.state as TaskSessionState,
     pendingAction: session.pendingAction,
+    taskPendingAction,
+    taskState: task.state ?? null,
+    reviewStatus: task.reviewStatus ?? null,
     activeSubagentCount: task.statusSummary?.active_subagent_count ?? task.activeSubagentCount ?? 0,
     queuedPromptCount: task.statusSummary?.queued_prompt_count ?? 0,
     lastActivityAt: session.lastActivityAt,
   };
+}
+
+function toThread(
+  task: KanbanTask,
+  snapshot: WorkflowSnapshotData,
+  stepTitles: Map<string, string>,
+): (ActiveThread & { bucket: number }) | null {
+  if (task.isArchived) return null;
+  const session = resolveThreadSession(task);
+  const taskPendingAction = resolveTaskPendingAction(task);
+  if (
+    !isThreadTaskEligible({
+      taskState: task.state ?? null,
+      reviewStatus: task.reviewStatus ?? null,
+      taskPendingAction,
+      primarySession: session,
+    })
+  ) {
+    return null;
+  }
+  const bucket = resolveThreadBucket(task, session, taskPendingAction);
+  // A thread with no session id has no conversation to render, so a column for
+  // it would be an empty promise rather than a view of live work.
+  if (bucket === null || !session.id || !session.state) return null;
+  return buildThread({ task, snapshot, stepTitles, session, taskPendingAction, bucket });
 }
 
 function activityRank(thread: ActiveThread): number {

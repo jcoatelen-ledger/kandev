@@ -1,6 +1,42 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActiveThread } from "@/lib/threads/active-threads";
+
+const sessionMocks = vi.hoisted(() => {
+  const startedAt = "2026-08-27T10:00:00Z";
+  const updatedAt = "2026-08-27T12:00:00Z";
+  return {
+    startedAt,
+    updatedAt,
+    sessionLists: new Map<string, Array<Record<string, unknown>>>(),
+    sessionErrors: new Map<string, string | null>(),
+    sessionLoaded: new Map<string, boolean>(),
+    sessionLoaders: new Map<string, ReturnType<typeof vi.fn>>(),
+    useTaskSessions: vi.fn((taskId: string) => {
+      let sessions = sessionMocks.sessionLists.get(taskId);
+      if (!sessions) {
+        sessions = [
+          {
+            id: `session-${taskId}`,
+            task_id: taskId,
+            state: "RUNNING" as const,
+            is_primary: true,
+            started_at: sessionMocks.startedAt,
+            updated_at: sessionMocks.updatedAt,
+          },
+        ];
+        sessionMocks.sessionLists.set(taskId, sessions);
+      }
+      return {
+        sessions,
+        isLoading: false,
+        isLoaded: sessionMocks.sessionLoaded.get(taskId) ?? true,
+        error: sessionMocks.sessionErrors.get(taskId) ?? null,
+        loadSessions: sessionMocks.sessionLoaders.get(taskId) ?? vi.fn(),
+      };
+    }),
+  };
+});
 
 vi.mock("./thread-conversation", () => ({
   ThreadConversation: ({ sessionId }: { sessionId: string }) => (
@@ -8,13 +44,29 @@ vi.mock("./thread-conversation", () => ({
   ),
 }));
 
+vi.mock("@/hooks/use-task-sessions", () => ({
+  useTaskSessions: sessionMocks.useTaskSessions,
+}));
+
 import { ThreadsBoard } from "./threads-board";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  sessionMocks.useTaskSessions.mockClear();
+  sessionMocks.sessionLists.clear();
+  sessionMocks.sessionErrors.clear();
+  sessionMocks.sessionLoaded.clear();
+  sessionMocks.sessionLoaders.clear();
+});
 
 const COLUMN_A = "thread-column-a";
 const FOCUSED_ATTR = "data-focused";
 const COLUMN_B = "thread-column-b";
+const TASK_A = "a";
+const PRIMARY_SESSION_A = "session-a-primary";
+const BUILDER_SESSION_A = "session-a-builder";
+const PRIMARY_CONVERSATION_A = `thread-conversation-${PRIMARY_SESSION_A}`;
+const BUILDER_CONVERSATION_A = `thread-conversation-${BUILDER_SESSION_A}`;
 
 function thread(overrides: Partial<ActiveThread> & { taskId: string }): ActiveThread {
   return {
@@ -32,7 +84,7 @@ function thread(overrides: Partial<ActiveThread> & { taskId: string }): ActiveTh
   };
 }
 
-describe("ThreadsBoard", () => {
+describe("ThreadsBoard — basic layout", () => {
   it("renders one column per active thread, in the order it was given", () => {
     render(
       <ThreadsBoard
@@ -52,6 +104,21 @@ describe("ThreadsBoard", () => {
     render(<ThreadsBoard threads={[thread({ taskId: "a" })]} onOpenTask={() => {}} />);
 
     expect(screen.getByTestId("thread-conversation-session-a")).not.toBeNull();
+  });
+
+  it("keeps thirty task shells mounted without mounting thirty conversations", () => {
+    const threads = Array.from({ length: 30 }, (_, index) =>
+      thread({ taskId: `task-${String(index + 1).padStart(2, "0")}` }),
+    );
+
+    render(<ThreadsBoard threads={threads} onOpenTask={() => {}} />);
+
+    expect(screen.getAllByTestId(/^thread-column-/)).toHaveLength(30);
+    expect(screen.getAllByTestId(/^thread-conversation-/)).toHaveLength(1);
+    const sessionListTaskIds = [
+      ...new Set(sessionMocks.useTaskSessions.mock.calls.map(([taskId]) => taskId)),
+    ];
+    expect(sessionListTaskIds).toEqual(["task-01", "task-02"]);
   });
 
   it("keeps the snap pager through the mobile breakpoint", () => {
@@ -79,8 +146,153 @@ describe("ThreadsBoard", () => {
     expect(screen.getByText("Delivery")).not.toBeNull();
     expect(screen.getByText("Build")).not.toBeNull();
   });
+});
 
-  it("says a thread is waiting on the reader rather than working", () => {
+describe("ThreadsBoard — session list loading", () => {
+  it("shows a local retry after the initial session list fails, then renders after success", async () => {
+    const retry = vi.fn(async () => {
+      sessionMocks.sessionErrors.set("a", null);
+      sessionMocks.sessionLoaded.set("a", true);
+    });
+    sessionMocks.sessionErrors.set("a", "service unavailable");
+    sessionMocks.sessionLoaded.set("a", false);
+    sessionMocks.sessionLoaders.set("a", retry);
+
+    const props = { threads: [thread({ taskId: "a" })], onOpenTask: () => {} };
+    const { rerender } = render(<ThreadsBoard {...props} />);
+
+    expect(screen.getByTestId("thread-session-list-error")).not.toBeNull();
+    expect(screen.getByRole("button", { name: /retry/i })).not.toBeNull();
+    expect(screen.queryByTestId("thread-conversation-session-a")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await act(async () => {
+      await retry.mock.results[0]?.value;
+    });
+    rerender(<ThreadsBoard {...props} />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("thread-session-list-error")).toBeNull();
+      expect(screen.getByTestId("thread-conversation-session-a")).not.toBeNull();
+    });
+  });
+});
+
+describe("ThreadsBoard — session selection", () => {
+  it("switches only the selected task column to another session", async () => {
+    sessionMocks.sessionLists.set("a", [
+      {
+        id: PRIMARY_SESSION_A,
+        task_id: TASK_A,
+        name: "Planner",
+        state: "RUNNING",
+        is_primary: true,
+        started_at: sessionMocks.startedAt,
+        updated_at: sessionMocks.updatedAt,
+      },
+      {
+        id: BUILDER_SESSION_A,
+        task_id: TASK_A,
+        name: "Builder",
+        state: "COMPLETED",
+        is_primary: false,
+        started_at: "2026-08-27T11:00:00Z",
+        updated_at: "2026-08-27T13:00:00Z",
+      },
+    ]);
+    render(
+      <ThreadsBoard
+        threads={[thread({ taskId: TASK_A, sessionId: PRIMARY_SESSION_A })]}
+        onOpenTask={() => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId(PRIMARY_CONVERSATION_A)).not.toBeNull();
+    });
+    fireEvent.mouseDown(screen.getByRole("tab", { name: /Builder/ }), { button: 0 });
+
+    expect(screen.queryByTestId(PRIMARY_CONVERSATION_A)).toBeNull();
+    expect(screen.getByTestId(BUILDER_CONVERSATION_A)).not.toBeNull();
+  });
+
+  it("applies a valid session deep link to the matching task column", async () => {
+    sessionMocks.sessionLists.set("a", [
+      {
+        id: PRIMARY_SESSION_A,
+        task_id: TASK_A,
+        name: "Planner",
+        state: "RUNNING",
+        is_primary: true,
+        started_at: sessionMocks.startedAt,
+        updated_at: sessionMocks.updatedAt,
+      },
+      {
+        id: BUILDER_SESSION_A,
+        task_id: TASK_A,
+        name: "Builder",
+        state: "COMPLETED",
+        is_primary: false,
+        started_at: "2026-08-27T11:00:00Z",
+        updated_at: "2026-08-27T13:00:00Z",
+      },
+    ]);
+    render(
+      <ThreadsBoard
+        threads={[thread({ taskId: TASK_A, sessionId: PRIMARY_SESSION_A })]}
+        focusedTaskId="a"
+        focusedSessionId={BUILDER_SESSION_A}
+        onOpenTask={() => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId(BUILDER_CONVERSATION_A)).not.toBeNull();
+    });
+    expect(screen.queryByTestId(PRIMARY_CONVERSATION_A)).toBeNull();
+  });
+
+  it("reports an invalid session deep link after membership loads and falls back locally", async () => {
+    sessionMocks.sessionLists.set("a", [
+      {
+        id: PRIMARY_SESSION_A,
+        task_id: TASK_A,
+        state: "RUNNING",
+        is_primary: true,
+        started_at: sessionMocks.startedAt,
+        updated_at: sessionMocks.updatedAt,
+      },
+    ]);
+    const onInvalidRequestedSession = vi.fn();
+    render(
+      <ThreadsBoard
+        threads={[thread({ taskId: TASK_A, sessionId: PRIMARY_SESSION_A })]}
+        focusedTaskId="a"
+        focusedSessionId="missing-session"
+        onInvalidRequestedSession={onInvalidRequestedSession}
+        onOpenTask={() => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onInvalidRequestedSession).toHaveBeenCalledWith(TASK_A, "missing-session");
+      expect(screen.getByTestId(PRIMARY_CONVERSATION_A)).not.toBeNull();
+    });
+  });
+});
+
+describe("ThreadsBoard — status, interaction and empty states", () => {
+  it("shows plain waiting without presenting it as an agent question", () => {
+    sessionMocks.sessionLists.set("a", [
+      {
+        id: "session-a",
+        task_id: "a",
+        state: "WAITING_FOR_INPUT",
+        is_primary: true,
+        started_at: sessionMocks.startedAt,
+        updated_at: sessionMocks.updatedAt,
+      },
+    ]);
     render(
       <ThreadsBoard
         threads={[thread({ taskId: "a", sessionState: "WAITING_FOR_INPUT" })]}
@@ -88,11 +300,12 @@ describe("ThreadsBoard", () => {
       />,
     );
 
-    expect(screen.getByText("Needs you")).not.toBeNull();
+    expect(screen.getByText("Waiting")).not.toBeNull();
     expect(screen.queryByText("Working")).toBeNull();
+    expect(screen.queryByTestId("thread-status-clarification")).toBeNull();
   });
 
-  it("treats a pending question as needing the reader even while the session is parked", () => {
+  it("shows an explicit question while the session is parked", () => {
     render(
       <ThreadsBoard
         threads={[thread({ taskId: "a", sessionState: "IDLE", pendingAction: "clarification" })]}
@@ -100,7 +313,7 @@ describe("ThreadsBoard", () => {
       />,
     );
 
-    expect(screen.getByText("Needs you")).not.toBeNull();
+    expect(screen.getByText("Question from agent")).not.toBeNull();
   });
 
   it("counts subagents and queued prompts only when there are some", () => {

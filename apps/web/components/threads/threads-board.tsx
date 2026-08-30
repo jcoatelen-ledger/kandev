@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { IconColumns } from "@tabler/icons-react";
 import type { ActiveThread } from "@/lib/threads/active-threads";
 import { useTranslation } from "react-i18next";
 import { ThreadColumn } from "./thread-column";
+import { useThreadColumnActivation } from "./use-thread-column-activation";
 
 type ThreadsBoardProps = {
   threads: ActiveThread[];
   isLoading?: boolean;
   /** Column a deep link asked for; scrolled into view and ringed on arrival. */
   focusedTaskId?: string | null;
+  /** Session a task-detail link asked the target column to select. */
+  focusedSessionId?: string | null;
+  /** Removes a target session query after the target column proves it invalid. */
+  onInvalidRequestedSession?: (taskId: string, sessionId: string) => void;
   onOpenTask: (taskId: string) => void;
 };
 
@@ -78,9 +83,16 @@ export function ThreadsBoard({
   threads,
   isLoading = false,
   focusedTaskId = null,
+  focusedSessionId = null,
+  onInvalidRequestedSession,
   onOpenTask,
 }: ThreadsBoardProps) {
   const { markedTaskId, retire } = useRetiringFocusMark(focusedTaskId);
+  const orderedIds = useMemo(() => threads.map((thread) => thread.taskId), [threads]);
+  const { boardRef, registerColumn, preloadTaskIds, detailTaskIds } = useThreadColumnActivation(
+    orderedIds,
+    focusedTaskId,
+  );
 
   if (threads.length === 0) {
     return isLoading ? <ThreadsLoadingState /> : <ThreadsEmptyState />;
@@ -89,6 +101,7 @@ export function ThreadsBoard({
   return (
     <div
       data-testid="threads-board"
+      ref={boardRef}
       // Capture phase: a column's own handlers must not be able to swallow the
       // interaction that retires the mark.
       onPointerDownCapture={retire}
@@ -100,6 +113,11 @@ export function ThreadsBoard({
           key={thread.taskId}
           thread={thread}
           isFocused={thread.taskId === markedTaskId}
+          requestedSessionId={thread.taskId === focusedTaskId ? focusedSessionId : null}
+          isPreloaded={preloadTaskIds.has(thread.taskId)}
+          isDetailActive={detailTaskIds.has(thread.taskId)}
+          onInvalidRequestedSession={onInvalidRequestedSession}
+          onColumnRef={registerColumn}
           onOpenTask={onOpenTask}
         />
       ))}

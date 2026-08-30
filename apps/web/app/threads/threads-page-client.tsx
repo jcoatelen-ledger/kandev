@@ -91,11 +91,24 @@ export function ThreadsPageClient() {
   const threads = useStableThreadOrder(ranked);
 
   const handleOpenTask = useCallback((taskId: string) => router.push(linkToTask(taskId)), [router]);
+  const handleInvalidRequestedSession = useCallback(
+    (taskId: string, sessionId: string) => {
+      if (searchParams.get("taskId") !== taskId || searchParams.get("sessionId") !== sessionId) {
+        return;
+      }
+      const nextSearchParams = new URLSearchParams(searchParams.toString());
+      nextSearchParams.delete("sessionId");
+      const query = nextSearchParams.toString();
+      router.replace(query ? `/threads?${query}` : "/threads", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   // Resolved against the rendered deck rather than trusted from the URL: the
   // requested thread may have settled between the link being offered and
   // followed, and a focus id no column matches would ring nothing.
   const focusedTaskId = resolveFocusedThreadId(threads, searchParams.get("taskId"));
+  const focusedSessionId = focusedTaskId ? searchParams.get("sessionId") : null;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
@@ -105,6 +118,8 @@ export function ThreadsPageClient() {
           threads={threads}
           isLoading={isLoading}
           focusedTaskId={focusedTaskId}
+          focusedSessionId={focusedSessionId}
+          onInvalidRequestedSession={handleInvalidRequestedSession}
           onOpenTask={handleOpenTask}
         />
       </div>

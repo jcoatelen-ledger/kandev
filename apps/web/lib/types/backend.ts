@@ -496,6 +496,7 @@ export type {
   TaskSessionStateChangedPayload,
   TaskSessionActivityChangedPayload,
   TaskSessionCancellationChangedPayload,
+  SessionPendingActionChangedPayload,
   TaskSessionNotificationPayload,
   TaskSessionAgentctlPayload,
   TurnEventPayload,

@@ -406,6 +406,7 @@ type Service struct {
 	pendingActionProjectionMu       sync.Mutex
 	pendingActionProjectionEpoch    string
 	pendingActionProjectionSequence uint64
+	lastPendingActionProjections    map[string]pendingActionProjectionState
 }
 
 // SetAttachmentService wires the file-backed prompt attachment owner into the
@@ -475,6 +476,7 @@ func NewService(repos Repos, eventBus bus.EventBus, log *logger.Logger, discover
 		// Focused service tests do not run backend composition. Production
 		// replaces this fallback with a database-allocated generation.
 		pendingActionProjectionEpoch: "1",
+		lastPendingActionProjections: make(map[string]pendingActionProjectionState),
 	}
 }
 

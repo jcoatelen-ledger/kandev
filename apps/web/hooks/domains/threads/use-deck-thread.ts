@@ -1,16 +1,15 @@
 "use client";
 
 import { useAppStore } from "@/components/state-provider";
-import { isActiveThreadSession } from "@/lib/threads/active-threads";
+import { findTaskInSnapshots } from "@/lib/kanban/find-task";
+import { isThreadTaskEligible, resolveTaskPendingAction } from "@/lib/threads/active-threads";
 
 /**
- * Whether this session currently has a column in the Threads deck.
+ * Whether this session can be opened in the Threads deck.
  *
- * Reads the already-loaded task sessions rather than fetching: every surface
- * that renders a chat panel has hydrated them (session tabs, the task sidebar),
- * and a status-row control must not be the thing that triggers a request. An
- * unloaded task therefore reports false, which hides the affordance rather than
- * offering a jump to a column that may not exist.
+ * Reads the already-loaded task sessions rather than fetching. A settled
+ * sibling can be selected when its task still has a live primary column, but
+ * an inactive task still hides the affordance because Threads has no column.
  */
 export function useIsDeckThread(taskId: string | null, sessionId: string | null): boolean {
   return useAppStore((state) => {
@@ -19,10 +18,21 @@ export function useIsDeckThread(taskId: string | null, sessionId: string | null)
       (candidate) => candidate.id === sessionId,
     );
     if (!session) return false;
-    return isActiveThreadSession({
-      isPrimary: Boolean(session.is_primary),
-      state: session.state,
-      pendingAction: session.pending_action,
+    const taskSessions = state.taskSessionsByTask.itemsByTaskId[taskId] ?? [];
+    const task = findTaskInSnapshots(taskId, state.kanbanMulti.snapshots, state.kanban.tasks);
+    const primarySession =
+      taskSessions.find((candidate) => candidate.is_primary) ??
+      (session.is_primary ? session : null);
+    return isThreadTaskEligible({
+      taskState: task?.state ?? null,
+      reviewStatus: task?.reviewStatus ?? null,
+      taskPendingAction: task ? resolveTaskPendingAction(task) : null,
+      primarySession: primarySession
+        ? {
+            state: primarySession.state,
+            pendingAction: primarySession.pending_action,
+          }
+        : null,
     });
   });
 }

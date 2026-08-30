@@ -141,6 +141,7 @@ export type AppState = KanbanSlice & {
   turns: (typeof defaultSessionState)["turns"];
   taskSessions: (typeof defaultSessionState)["taskSessions"];
   taskSessionsByTask: (typeof defaultSessionState)["taskSessionsByTask"];
+  pendingActionProjectionsBySessionId: (typeof defaultSessionState)["pendingActionProjectionsBySessionId"];
   sessionAgentctl: (typeof defaultSessionState)["sessionAgentctl"];
   worktrees: (typeof defaultSessionState)["worktrees"];
   sessionWorktreesBySessionId: (typeof defaultSessionState)["sessionWorktreesBySessionId"];
@@ -453,11 +454,13 @@ export type AppState = KanbanSlice & {
     sessionId: string,
     pendingAction: TaskPendingAction | null,
     revision?: TaskPendingActionRevision,
+    taskId?: string,
   ) => void;
   removeTaskSession: (taskId: string, sessionId: string) => void;
   setTaskSessionsForTask: (taskId: string, sessions: TaskSession[]) => void;
   upsertTaskSessionFromEvent: (taskId: string, session: TaskSession) => void;
   setTaskSessionsLoading: (taskId: string, loading: boolean) => void;
+  setTaskSessionsError: (taskId: string, error: string | null) => void;
   setSessionAgentctlStatus: (sessionId: string, status: SessionAgentctlStatus) => void;
   setWorktree: (worktree: Worktree) => void;
   setSessionWorktrees: (sessionId: string, worktreeIds: string[]) => void;
