@@ -22,6 +22,7 @@ import type { AgentRuntimeAvailability } from "@/lib/types/agent-runtime";
 import type { HydrationState } from "./store";
 import { seedSettledSessionBoundaries } from "@/lib/state/slices/session/turn-actions";
 import { migrateSidebarViewDraft, migrateView } from "./slices/ui/ui-slice";
+import { mergeAgentProfileRecentUseState } from "@/lib/agent-profile-recent-use";
 
 export const defaultState = {
   kanban: defaultKanbanState.kanban,
@@ -48,6 +49,7 @@ export const defaultState = {
   settingsData: defaultSettingsState.settingsData,
   sleepInhibition: defaultSettingsState.sleepInhibition,
   userSettings: defaultSettingsState.userSettings,
+  agentProfileRecentUse: defaultSettingsState.agentProfileRecentUse,
   messages: defaultSessionState.messages,
   turns: defaultSessionState.turns,
   taskSessions: defaultSessionState.taskSessions,
@@ -357,8 +359,7 @@ export function mergeInitialState(initialState?: HydrationState): DefaultState {
     kanban: { ...defaultState.kanban, ...initialState.kanban },
     kanbanMulti: { ...defaultState.kanbanMulti, ...initialState.kanbanMulti },
     workflows: { ...defaultState.workflows, ...initialState.workflows },
-    workspaceContextGeneration:
-      initialState.workspaceContextGeneration ?? defaultState.workspaceContextGeneration,
+    workspaceContextGeneration: mergeWorkspaceContextGeneration(initialState),
     tasks: { ...defaultState.tasks, ...initialState.tasks },
     workspaces: { ...defaultState.workspaces, ...initialState.workspaces },
     repositories: { ...defaultState.repositories, ...initialState.repositories },
@@ -384,6 +385,10 @@ export function mergeInitialState(initialState?: HydrationState): DefaultState {
     settingsData: { ...defaultState.settingsData, ...initialState.settingsData },
     sleepInhibition: { ...defaultState.sleepInhibition, ...initialState.sleepInhibition },
     userSettings: { ...defaultState.userSettings, ...initialState.userSettings },
+    agentProfileRecentUse: mergeAgentProfileRecentUseState(
+      defaultState.agentProfileRecentUse,
+      initialState.agentProfileRecentUse ?? {},
+    ),
     messages: { ...defaultState.messages, ...initialState.messages },
     turns: mergeTurnsState(defaultState.turns, initialState.turns, initialState.taskSessions),
     ...mergeTaskSessionState(initialState),
@@ -445,6 +450,10 @@ export function mergeInitialState(initialState?: HydrationState): DefaultState {
     system: { ...defaultState.system, ...initialState.system },
     ...mergeUIPanelState(initialState),
   };
+}
+
+function mergeWorkspaceContextGeneration(initialState: HydrationState) {
+  return initialState.workspaceContextGeneration ?? defaultState.workspaceContextGeneration;
 }
 
 // Split out of mergeInitialState to stay under the per-function line limit —
