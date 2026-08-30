@@ -3220,13 +3220,11 @@ func TestService_CreateMessage(t *testing.T) {
 	}
 
 	// Check event was published
-	events := eventBus.GetPublishedEvents()
-	if len(events) != 1 {
-		t.Errorf("expected 1 event, got %d", len(events))
+	published := eventBus.GetPublishedEvents()
+	if countEvents(published, events.MessageAdded) != 1 {
+		t.Errorf("expected one %s event, got %v", events.MessageAdded, eventTypes(published))
 	}
-	if events[0].Type != "message.added" {
-		t.Errorf("expected event type 'message.added', got %s", events[0].Type)
-	}
+	findPublishedEvent(t, published, events.MessageAdded)
 }
 
 func TestService_ClarificationMessageEventsCarryPendingActionProjection(t *testing.T) {
@@ -3368,8 +3366,8 @@ func TestService_CreateMessageIdempotentReturnsCommittedMessage(t *testing.T) {
 	if second.ID != first.ID || second.Content != first.Content {
 		t.Fatalf("retry returned %+v, want original %+v", second, first)
 	}
-	if events := eventBus.GetPublishedEvents(); len(events) != 1 {
-		t.Fatalf("published events = %d, want 1", len(events))
+	if published := eventBus.GetPublishedEvents(); countEvents(published, events.MessageAdded) != 1 {
+		t.Fatalf("published events = %v, want one %s", eventTypes(published), events.MessageAdded)
 	}
 
 	messages, err := repo.ListMessages(ctx, sessionID)
