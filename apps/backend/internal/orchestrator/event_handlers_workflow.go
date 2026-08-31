@@ -37,6 +37,7 @@ var (
 	errDeferredMoveAlreadyApplied           = errors.New("deferred move already applied")
 	errReusableSessionNoLongerActive        = errors.New("reusable session is no longer active")
 	errWorkflowAutoStartSessionTerminalized = errors.New("workflow auto-start session terminalized")
+	errContextResetCancellationConflict     = errors.New("context reset cancellation is already in progress")
 )
 
 type workflowAutoStartSessionTerminalizedError struct {
@@ -2439,11 +2440,14 @@ dispatchLoop:
 				result.aborted = true
 				break dispatchLoop
 			}
-		case wfmodels.OnEnterQueueRun, wfmodels.OnEnterRunCodeReview:
-			// Engine-owned per the spec, but their on_enter dispatch (AC-A7/
-			// AC-A8) is explicitly deferred to a later Build round — see
-			// docs/specs/workflow-on-enter-action-dispatch/spec.md. This is a
-			// known, recognized type, not the AC-A6 default warning case.
+		case wfmodels.OnEnterQueueRun, wfmodels.OnEnterRunCodeReview, wfmodels.OnEnterEnsureParticipantSeat:
+			// Session-independent, ledger-owned: engine.DispatchStepEntry
+			// (internal/workflow/engine/entrydispatch.go) dispatches these
+			// synchronously after commit via every step-transition writer
+			// (Repository.dispatchStepEntry in step_entry_dispatch.go).
+			// processOnEnter must not also dispatch them here or they would
+			// run twice — see docs/specs/workflow-on-enter-action-dispatch/spec.md.
+			// This is a known, recognized type, not the AC-A6 default warning case.
 		default:
 			// AC-A6: a genuinely unrecognized on_enter action type. Warn
 			// instead of silently discarding it — this is the exact failure
@@ -3290,18 +3294,22 @@ func (s *Service) dispatchTakenQueuedMessage(ctx context.Context, sessionID stri
 	return true
 }
 
+type passthroughRunningPreparer interface {
+	PreparePassthroughRunning(sessionID string) (func(), error)
+}
+
 // deliverPassthroughPrompt writes a prompt to PTY stdin and marks the session as running.
 // Uses the per-agent PlanPassthroughStdinChunks so Claude's inter-chunk SubmitDelay is
 // honored here too (queued / workflow-auto-start path); other agents stay on the single
 // atomic write. Falls back to the simple "\r" append if config resolution fails so a
 // transient lookup error never silently swallows the prompt.
+//
+// Callers that already hold the per-session cancellation guard must use
+// PreparePassthroughRunning + writePassthroughPrompt instead (see handleAgentReady); this
+// function publishes agent.running synchronously and will re-enter the guard via the event
+// subscriber. Remaining callers: autoStartPassthroughPrompt (workflow auto-start) and the
+// legacy non-preparer fallback in handleAgentReady.
 func (s *Service) deliverPassthroughPrompt(ctx context.Context, sessionID, content string) error {
-	pt, cfgErr := s.agentManager.ResolvePassthroughConfig(ctx, sessionID)
-	if cfgErr != nil {
-		s.logger.Warn("failed to resolve passthrough config, falling back to \\r submit",
-			zap.String("session_id", sessionID),
-			zap.Error(cfgErr))
-	}
 	// Mark RUNNING before any writes so concurrent PromptTask / queued-message
 	// delivery is blocked by checkSessionPromptable during the inter-chunk
 	// SubmitDelay window (150ms for Claude). Mark error is non-fatal.
@@ -3309,6 +3317,19 @@ func (s *Service) deliverPassthroughPrompt(ctx context.Context, sessionID, conte
 		s.logger.Warn("failed to mark passthrough as running before prompt",
 			zap.String("session_id", sessionID),
 			zap.Error(err))
+	}
+	return s.writePassthroughPrompt(ctx, sessionID, content)
+}
+
+// writePassthroughPrompt writes a prompt to PTY stdin without changing runtime
+// state. The ready-event path uses this after preparing the running state so it
+// can publish the captured event after releasing the session guard.
+func (s *Service) writePassthroughPrompt(ctx context.Context, sessionID, content string) error {
+	pt, cfgErr := s.agentManager.ResolvePassthroughConfig(ctx, sessionID)
+	if cfgErr != nil {
+		s.logger.Warn("failed to resolve passthrough config, falling back to \\r submit",
+			zap.String("session_id", sessionID),
+			zap.Error(cfgErr))
 	}
 	if cfgErr != nil {
 		if err := s.agentManager.WritePassthroughStdin(ctx, sessionID, content+"\r"); err != nil {
@@ -4077,8 +4098,23 @@ func (s *Service) resetAgentContext(ctx context.Context, taskID string, session 
 
 	releaseLifecycleLock := s.acquireSessionLifecycleLock(sessionID)
 	defer releaseLifecycleLock()
+	resetGuard := s.lockCancelInFlightGuard(sessionID)
 	s.setSessionResetInProgress(sessionID, true)
-	defer s.setSessionResetInProgress(sessionID, false)
+	defer func() {
+		// Publish the end of reset while the same guard is still held. A prompt
+		// that acquires the guard after this point observes a settled marker.
+		s.setSessionResetInProgress(sessionID, false)
+		resetGuard.release()
+	}()
+
+	if err := s.quiesceActiveResetTurn(ctx, taskID, sessionID, stepName, resetGuard); err != nil {
+		s.logger.Error("failed to quiesce active turn before context reset",
+			zap.String("task_id", taskID),
+			zap.String("session_id", sessionID),
+			zap.String("step_name", stepName),
+			zap.Error(err))
+		return false
+	}
 
 	executionID, err := s.agentManager.GetExecutionIDForSession(ctx, sessionID)
 	if err != nil || executionID == "" {
@@ -4143,6 +4179,66 @@ func (s *Service) resetAgentContext(ctx context.Context, taskID string, session 
 	// after the provider reset succeeds. The token is handled explicitly above.
 	s.clearPersistedResetState(ctx, sessionID, session)
 	return true
+}
+
+// quiesceActiveResetTurn stops an in-flight turn through the internal silent
+// cancellation coordinator before the provider conversation is replaced. It
+// deliberately does not call Service.CancelAgent: that path evaluates the
+// user's configured cancellation completion and creates a visible message.
+func (s *Service) quiesceActiveResetTurn(
+	ctx context.Context,
+	taskID, sessionID, stepName string,
+	resetGuard *lockedCancelInFlightGuard,
+) error {
+	turnID, err := s.activeResetTurnID(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("inspect active turn for context reset: %w", err)
+	}
+	if turnID == "" {
+		if s.currentCancellation(sessionID) != nil {
+			return errContextResetCancellationConflict
+		}
+		return nil
+	}
+	if s.turnService == nil {
+		// The in-memory cache is the only available identity when no durable
+		// turn service is wired. The lifecycle capture then applies its own
+		// best-effort cancellation behavior without an expected durable ID.
+		turnID = ""
+	}
+	if _, err := s.cancelAgentSilentWithGuardActionKindExclusiveConflict(
+		ctx, taskID, sessionID, resetGuard.unlock, resetGuard.relock,
+		nil, cancellationKindInternal, turnID, errContextResetCancellationConflict,
+	); err != nil {
+		return fmt.Errorf("cancel active turn for context reset at %s: %w", stepName, err)
+	}
+	return nil
+}
+
+// hasActiveResetTurn combines the in-memory admission records with the
+// durable turn service. Either record is enough to fail closed before a
+// provider context replacement; missing an active turn could let the old
+// provider stream race the new conversation.
+func (s *Service) hasActiveResetTurn(ctx context.Context, sessionID string) (bool, error) {
+	turnID, err := s.activeResetTurnID(ctx, sessionID)
+	return turnID != "", err
+}
+
+func (s *Service) activeResetTurnID(ctx context.Context, sessionID string) (string, error) {
+	if s.turnService != nil {
+		turnID, err := s.peekActiveTurnID(ctx, sessionID)
+		if err != nil {
+			return "", err
+		}
+		if turnID != "" {
+			return turnID, nil
+		}
+	}
+	if value, ok := s.activeTurns.Load(sessionID); ok {
+		turnID, _ := value.(string)
+		return turnID, nil
+	}
+	return s.reservedPromptTurnID(sessionID), nil
 }
 
 // reconcileFailedContextReset handles a reset that moved the live ACP session
