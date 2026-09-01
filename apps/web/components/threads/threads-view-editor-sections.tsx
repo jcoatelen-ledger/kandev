@@ -489,6 +489,7 @@ function ThreadSortSection({
           options={THREAD_SORT_OPTIONS.map((option) => ({
             key: option.key,
             label: t(option.labelKey),
+            description: t(option.descriptionKey),
           }))}
           onChange={onChange}
           mobile={mobile}

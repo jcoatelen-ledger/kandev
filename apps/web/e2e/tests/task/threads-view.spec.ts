@@ -252,6 +252,70 @@ test.describe("Threads view", () => {
     await expect(board.locator("[data-thread-column-id]")).toHaveCount(3);
   });
 
+  test("explains sorts and shows live task details in the task picker", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(240_000);
+    const task = await startAgentTask(testPage, apiClient, seedData, "threads-view-task-details", {
+      title: "Threads view task details",
+    });
+    await apiClient.mockGitHubAssociateTaskPR({
+      workspace_id: seedData.workspaceId,
+      repository_id: seedData.repositoryId,
+      task_id: task.id,
+      owner: "kandev-e2e",
+      repo: "threads-view-details",
+      pr_number: 42,
+      pr_url: "https://github.test/kandev-e2e/threads-view-details/pull/42",
+      pr_title: "Show Threads view task details",
+      head_branch: "feature/threads-view-details",
+      base_branch: "main",
+      author_login: "threads-author",
+      state: "open",
+      review_state: "approved",
+      checks_state: "failure",
+      mergeable_state: "blocked",
+    });
+
+    await testPage.goto("/threads");
+    await testPage.getByTestId("threads-view-picker").click();
+    await testPage.getByTestId("threads-new-view").click();
+    const editor = testPage.getByTestId("threads-view-settings-popover");
+    await expect(editor).toBeVisible();
+    await expect(editor).toHaveCSS("border-top-width", "1px");
+    await expect(editor.getByTestId("threads-max-columns")).toHaveValue("5");
+
+    await editor.getByTestId("threads-sort-select").click();
+    const attention = testPage.getByRole("option", { name: "Attention" });
+    await expect(attention).toContainText("need you");
+    await attention.click();
+
+    await editor.getByTestId("threads-scope-select").click();
+    await testPage.getByRole("option", { name: "Selected tasks", exact: true }).click();
+    await editor.getByTestId("threads-open-task-picker").click();
+    const row = editor.getByTestId("threads-task-picker-row").filter({
+      hasText: "Threads view task details",
+    });
+    await expect(row.getByRole("img", { name: "Review" })).toBeVisible();
+    await expect(row.getByTestId("threads-task-picker-step")).toHaveText("Review");
+
+    await apiClient.updateTaskState(task.id, "WAITING_FOR_INPUT");
+    await expect(row.getByTestId("task-state-waiting-for-input")).toBeVisible();
+
+    const prIcon = row.getByTestId(`pr-task-icon-${task.id}`);
+    await expect(prIcon).toBeVisible();
+    await expect(prIcon).toHaveClass(/text-/);
+    await prIcon.hover();
+    await expect(
+      testPage
+        .locator('[data-slot="tooltip-content"]:visible')
+        .filter({ has: testPage.getByTestId("pr-task-status-summary") })
+        .last(),
+    ).toBeVisible();
+  });
+
   test("shows which column the cursor is in, and moves that mark on click", async ({
     testPage,
     apiClient,

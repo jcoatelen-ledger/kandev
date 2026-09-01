@@ -1,11 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { IconArrowLeft, IconCheck } from "@tabler/icons-react";
+import { Badge } from "@kandev/ui/badge";
 import { Button } from "@kandev/ui/button";
 import { Checkbox } from "@kandev/ui/checkbox";
 import { Input } from "@kandev/ui/input";
 import { useTranslation } from "react-i18next";
+import { PRTaskIcon } from "@/components/github/pr-task-icon";
+import {
+  getTaskStateIconLabelKey,
+  TaskStateIcon,
+  type TaskStateIconProps,
+} from "@/components/task/task-state-icon";
 import type { ThreadCandidate } from "@/lib/threads/thread-view-query";
 import {
   MAX_THREAD_VIEW_TASK_IDS,
@@ -27,6 +34,66 @@ function selectAllValue(
   if (allVisibleSelected) return true;
   if (someVisibleSelected) return "indeterminate";
   return false;
+}
+
+function candidateStateIconProps(candidate: ThreadCandidate): TaskStateIconProps {
+  const pendingAction = candidate.taskPendingAction ?? candidate.pendingAction;
+  return {
+    state: candidate.taskState ?? undefined,
+    sessionState: candidate.sessionState,
+    foregroundActivity: candidate.foregroundActivity,
+    hasPendingClarification: pendingAction === "clarification",
+    hasPendingPermission: pendingAction === "permission",
+    isOnLastWorkflowStep: candidate.isOnLastWorkflowStep,
+    interrupted: candidate.interrupted,
+  };
+}
+
+function ThreadTaskPickerRow({
+  candidate,
+  checked,
+  onCheckedChange,
+}: {
+  candidate: ThreadCandidate;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const checkboxId = useId();
+  const iconProps = candidateStateIconProps(candidate);
+
+  return (
+    <div
+      className="flex min-h-11 items-center gap-2 rounded-md px-2 text-sm hover:bg-muted/60"
+      data-testid="threads-task-picker-row"
+    >
+      <Checkbox
+        id={checkboxId}
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+        aria-label={candidate.title}
+        data-testid="threads-task-picker-checkbox"
+      />
+      <label
+        htmlFor={checkboxId}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-2"
+      >
+        <TaskStateIcon {...iconProps} accessibleLabel={t(getTaskStateIconLabelKey(iconProps))} />
+        <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
+        {candidate.stepTitle && (
+          <Badge
+            variant="secondary"
+            className="shrink-0 text-[0.6rem]"
+            data-testid="threads-task-picker-step"
+          >
+            {candidate.stepTitle}
+          </Badge>
+        )}
+      </label>
+      <PRTaskIcon taskId={candidate.taskId} prInfo={candidate.prInfo} />
+      {checked && <IconCheck className="h-4 w-4 shrink-0 text-primary" />}
+    </div>
+  );
 }
 
 // eslint-disable-next-line max-lines-per-function -- Keeps search, bulk selection, and task-row updates in one picker boundary.
@@ -116,22 +183,12 @@ export function ThreadsViewTaskPicker({ candidates, selectedTaskIds, onChange, o
           </p>
         ) : (
           visibleCandidates.map((candidate) => (
-            <label
+            <ThreadTaskPickerRow
               key={candidate.taskId}
-              className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md px-2 text-sm hover:bg-muted/60"
-              data-testid="threads-task-picker-row"
-            >
-              <Checkbox
-                checked={selected.has(candidate.taskId)}
-                onCheckedChange={(checked) => setSelected(candidate.taskId, checked === true)}
-                aria-label={candidate.title}
-                data-testid="threads-task-picker-checkbox"
-              />
-              <span className="min-w-0 flex-1 truncate">{candidate.title}</span>
-              {selected.has(candidate.taskId) && (
-                <IconCheck className="h-4 w-4 shrink-0 text-primary" />
-              )}
-            </label>
+              candidate={candidate}
+              checked={selected.has(candidate.taskId)}
+              onCheckedChange={(checked) => setSelected(candidate.taskId, checked)}
+            />
           ))
         )}
       </div>

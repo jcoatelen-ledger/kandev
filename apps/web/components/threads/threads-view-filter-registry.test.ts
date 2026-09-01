@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TFunction } from "i18next";
 import type { ThreadCandidate } from "@/lib/threads/thread-view-query";
-import { getThreadFilterOptions } from "./threads-view-filter-registry";
+import { getThreadFilterOptions, THREAD_SORT_OPTIONS } from "./threads-view-filter-registry";
 
 const candidate = {
   taskId: "task-1",
@@ -30,5 +30,17 @@ describe("Threads filter option labels", () => {
     expect(getThreadFilterOptions("taskOrigin", [candidate], translate)).toEqual([
       { value: "agent_created", label: "threads:originAgentCreated" },
     ]);
+  });
+});
+
+describe("Threads sort options", () => {
+  it("gives every sort option a localized explanation", () => {
+    expect(THREAD_SORT_OPTIONS).toHaveLength(9);
+    expect(
+      THREAD_SORT_OPTIONS.every((option) => {
+        const descriptionKey = (option as { descriptionKey?: unknown }).descriptionKey;
+        return typeof descriptionKey === "string" && descriptionKey.startsWith("threads:");
+      }),
+    ).toBe(true);
   });
 });

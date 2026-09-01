@@ -47,7 +47,8 @@ Threads views, so that I can change focus with one action.
 - **AC-UI-THREADS-SAVED-VIEWS-001.2:** When no Threads view is stored, the
   system shall provide and select one canonical `All threads` view.
 - **AC-UI-THREADS-SAVED-VIEWS-001.3:** `All threads` shall use all eligible
-  tasks, the existing attention-first order, and no user column limit.
+  tasks, the existing attention-first order, and a default limit of five
+  columns.
 - **AC-UI-THREADS-SAVED-VIEWS-001.4:** A user shall be able to create, rename,
   delete, switch, overwrite, duplicate with `Save as`, and discard changes to
   Threads views.
@@ -134,6 +135,10 @@ task columns.
   admit and focus its task when the active view or column limit hides it.
 - **AC-UI-THREADS-SAVED-VIEWS-003.11:** A temporary deep-link admission shall
   count toward the column limit and shall not modify the saved task scope.
+- **AC-UI-THREADS-SAVED-VIEWS-003.12:** Each sort option shall include a
+  visible description that explains the order that the option applies.
+- **AC-UI-THREADS-SAVED-VIEWS-003.13:** A new Threads view shall start with a
+  limit of five columns. The user can select another valid limit or no limit.
 
 ### REQ-UI-THREADS-SAVED-VIEWS-004: Responsive editor and recovery
 
@@ -165,6 +170,12 @@ touch screen.
 - **AC-UI-THREADS-SAVED-VIEWS-004.10:** If stored view data is invalid or
   references removed tasks, the page shall remain usable and shall fall back
   to the canonical view only when no valid active view remains.
+- **AC-UI-THREADS-SAVED-VIEWS-004.11:** Each task-picker row shall show the
+  current task-state icon and workflow-step label from the live task summary.
+- **AC-UI-THREADS-SAVED-VIEWS-004.12:** A task-picker row with a pull request
+  shall show the shared status color and pointer or touch disclosure.
+- **AC-UI-THREADS-SAVED-VIEWS-004.13:** The desktop editor popover shall use a
+  visible border and elevation that separate it from the page background.
 
 ## Out of scope
 

@@ -172,12 +172,19 @@ test.describe("Mobile Threads view", () => {
 
     const editor = drawer.getByTestId("threads-view-editor");
     await expect(editor).toBeVisible();
+    await expect(editor.getByTestId("threads-max-columns")).toHaveValue("5");
     await editor.getByTestId("threads-scope-select").tap();
     await testPage.getByRole("option", { name: "Selected tasks", exact: true }).tap();
     await editor.getByTestId("threads-open-task-picker").tap();
     await expect(drawer.getByTestId("threads-task-picker")).toBeVisible();
     await drawer.getByTestId("threads-task-picker-search").fill("Mobile saved");
     await expect(drawer.getByTestId("threads-task-picker-row")).toHaveCount(2);
+    await expect(
+      drawer.getByTestId("threads-task-picker-row").first().getByRole("img", { name: "Review" }),
+    ).toBeVisible();
+    await expect(
+      drawer.getByTestId("threads-task-picker-row").first().getByTestId("threads-task-picker-step"),
+    ).toHaveText("Review");
     await drawer.getByTestId("threads-task-picker-select-all").tap();
     const row = drawer.getByTestId("threads-task-picker-row").first();
     const rowBox = await row.boundingBox();
@@ -190,7 +197,9 @@ test.describe("Mobile Threads view", () => {
     await testPage.getByRole("option", { name: "Title", exact: true }).tap();
     await editor.getByTestId("threads-filter-value").fill("Mobile saved view");
     await editor.getByTestId("threads-sort-select").tap();
-    await testPage.getByRole("option", { name: "Title", exact: true }).tap();
+    const titleSort = testPage.getByRole("option", { name: "Title", exact: true });
+    await expect(titleSort).toContainText("alphabetical");
+    await titleSort.tap();
     await editor.getByTestId("threads-max-columns").fill("1");
 
     const savedViewResponse = testPage.waitForResponse((response) => {

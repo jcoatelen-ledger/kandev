@@ -25,11 +25,11 @@ Stored task IDs never grant access to a task or cause a direct task fetch.
 
 ## Requirement mapping
 
-| Requirement | Design section |
-| --- | --- |
-| `REQ-UI-THREADS-SAVED-VIEWS-001` | [Saved view state](#saved-view-state), [Persistence and synchronization](#persistence-and-synchronization) |
-| `REQ-UI-THREADS-SAVED-VIEWS-002` | [Candidate projection](#candidate-projection), [Filter catalog](#filter-catalog), [Query pipeline](#query-pipeline) |
-| `REQ-UI-THREADS-SAVED-VIEWS-003` | [Sort, admission, and stable order](#sort-admission-and-stable-order), [Deep links](#deep-links) |
+| Requirement                      | Design section                                                                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `REQ-UI-THREADS-SAVED-VIEWS-001` | [Saved view state](#saved-view-state), [Persistence and synchronization](#persistence-and-synchronization)                        |
+| `REQ-UI-THREADS-SAVED-VIEWS-002` | [Candidate projection](#candidate-projection), [Filter catalog](#filter-catalog), [Query pipeline](#query-pipeline)               |
+| `REQ-UI-THREADS-SAVED-VIEWS-003` | [Sort, admission, and stable order](#sort-admission-and-stable-order), [Deep links](#deep-links)                                  |
 | `REQ-UI-THREADS-SAVED-VIEWS-004` | [Top-bar controls](#top-bar-controls), [Responsive behavior](#responsive-behavior), [Failure and recovery](#failure-and-recovery) |
 
 ## Saved view state
@@ -58,7 +58,8 @@ type ThreadViewDraft = Omit<ThreadView, "id" | "name"> & {
 `threadViews` contains saved views, the active view ID, one active draft, the
 last sync error, and an order-reset generation. The built-in view uses ID
 `view-all-threads`, name `All threads`, task scope `all`, attention sort, and
-`maxColumns: null`.
+`maxColumns: 5`. New view definitions use the same limit. A saved `null` value
+continues to select no limit.
 
 The saved collection is independent from `sidebarViews`. Shared frontend query
 types contain filter operators, values, and sort direction. Sidebar and
@@ -144,6 +145,10 @@ Each `ThreadCandidate` contains only bounded task-list data:
 - active subagent and queued prompt counts;
 - Git-change, pull-request, and pull-request-attention booleans.
 
+The task-picker projection also keeps task-level foreground activity,
+interruption state, final-step state, and compact pull-request information.
+These values come from the same WebSocket-backed snapshots as the task title.
+
 The projection uses workflow snapshots, workspace repository/profile stores,
 and `TaskStatusSummary`. It does not load a transcript or the session list.
 The bounded task DTO adds the primary session's agent profile ID beside the
@@ -162,29 +167,29 @@ Threads uses the existing clause operators where their value kinds apply:
 
 The initial dimension registry is:
 
-| Dimension | Values or meaning |
-| --- | --- |
-| `threadStatus` | `needs_action`, `running`, `waiting`, `ready_for_review` |
-| `pendingAction` | `clarification`, `permission`, `none` |
-| `taskState` | Exact persisted task state |
-| `workflow` | Workflow ID |
-| `workflowStep` | Workflow-step ID |
-| `repository` | Any linked repository ID |
-| `primaryAgent` | Primary agent profile ID, rendered with its current name |
-| `executorType` | Primary executor type |
-| `priority` | Persisted task priority |
-| `blocked` | Task dependency-blocked boolean |
-| `hasQueuedPrompts` | Queue count is more than zero |
-| `hasActiveSubagents` | Active subagent count is more than zero |
-| `hasDiff` | Bounded Git summary has a change |
-| `hasPR` | Bounded pull-request count is more than zero |
-| `prNeedsAttention` | Bounded pull-request attention is true |
-| `taskType` | Standard, pull-request review, or issue-watch task |
-| `titleMatch` | Case-insensitive title substring |
-| `hasActiveError` | Compact task summary contains an active error |
-| `taskLabel` | Any normalized value in the bounded task label array |
-| `taskOrigin` | Persisted manual, agent-created, routine, onboarding, or automation origin |
-| `hasMultipleSessions` | Bounded session count is more than one |
+| Dimension             | Values or meaning                                                          |
+| --------------------- | -------------------------------------------------------------------------- |
+| `threadStatus`        | `needs_action`, `running`, `waiting`, `ready_for_review`                   |
+| `pendingAction`       | `clarification`, `permission`, `none`                                      |
+| `taskState`           | Exact persisted task state                                                 |
+| `workflow`            | Workflow ID                                                                |
+| `workflowStep`        | Workflow-step ID                                                           |
+| `repository`          | Any linked repository ID                                                   |
+| `primaryAgent`        | Primary agent profile ID, rendered with its current name                   |
+| `executorType`        | Primary executor type                                                      |
+| `priority`            | Persisted task priority                                                    |
+| `blocked`             | Task dependency-blocked boolean                                            |
+| `hasQueuedPrompts`    | Queue count is more than zero                                              |
+| `hasActiveSubagents`  | Active subagent count is more than zero                                    |
+| `hasDiff`             | Bounded Git summary has a change                                           |
+| `hasPR`               | Bounded pull-request count is more than zero                               |
+| `prNeedsAttention`    | Bounded pull-request attention is true                                     |
+| `taskType`            | Standard, pull-request review, or issue-watch task                         |
+| `titleMatch`          | Case-insensitive title substring                                           |
+| `hasActiveError`      | Compact task summary contains an active error                              |
+| `taskLabel`           | Any normalized value in the bounded task label array                       |
+| `taskOrigin`          | Persisted manual, agent-created, routine, onboarding, or automation origin |
+| `hasMultipleSessions` | Bounded session count is more than one                                     |
 
 All clauses use AND. An `in` clause uses OR across its selected values. A
 repository clause matches when any linked repository satisfies the clause.
@@ -221,9 +226,14 @@ Sort keys include attention, last activity, updated time, created time, title,
 task state, workflow then step, priority, and primary agent label. Direction
 applies to every key. Each comparator uses task ID as its final tie-breaker.
 
-Attention sort preserves the current deck precedence: explicit person action,
-active work, ready-for-review or waiting work, then activity recency. Plain
-`WAITING_FOR_INPUT` does not become a person-action rank.
+Each sort option supplies a localized description to the shared sort-picker
+primitive. The description states the primary order before the user selects
+the option.
+
+Attention sort preserves the current deck precedence. It puts explicit person
+action first, then running or ready-for-review work, and then waiting work. It
+uses activity recency inside each group. Plain `WAITING_FOR_INPUT` does not
+become a person-action rank.
 
 The query fingerprint contains the active view ID, effective scope, filters,
 sort, and column limit. A fingerprint change or explicit Reapply sort action
@@ -274,6 +284,14 @@ Other task-listing pages keep their current header controls.
 The editor reuses view header, clause, sort, and responsive surface primitives
 after they accept a surface-owned registry and state adapter. It omits sidebar
 grouping, collapsed groups, and task-row presentation.
+
+The desktop popover uses the shared popover background with a stronger border,
+ring, and shadow. This treatment separates the editor from dark page surfaces.
+
+Each task-picker row composes the shared `TaskStateIcon` and `PRTaskIcon`.
+`TaskStateIcon` uses the bounded task and session state from the candidate.
+`PRTaskIcon` receives compact summary data and keeps its shared color and
+pointer or touch disclosure. The row shows the current workflow-step label.
 
 ## Responsive behavior
 
@@ -335,9 +353,9 @@ scope semantics, every filter dimension, sort ties, admission limits, deep-link
 inclusion, hidden counts, and stable-order resets.
 
 Desktop component and Playwright tests cover top-bar placement, saved-view
-switching, task checkboxes, filters, sort, a three-column cap, persistence, and
-deep links. Tests also prove that hidden matches mount no session-list or chat
-consumer.
+switching, task metadata, sort descriptions, a three-column cap, persistence,
+and deep links. Tests also prove that hidden matches mount no session-list or
+chat consumer.
 
 Mobile Playwright covers the top-bar entry, one-drawer navigation, 44-pixel
 rows, task selection, filter and limit parity, safe-area clearance, focus

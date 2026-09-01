@@ -45,8 +45,8 @@ function snapshot(
     workflowId,
     workflowName,
     steps: [
-      { id: "step-build", title: "Build", color: "blue", position: 0 },
       { id: REVIEW_STEP_ID, title: "Review", color: "green", position: 1 },
+      { id: "step-build", title: "Build", color: "blue", position: 0 },
     ],
     tasks,
   };
@@ -84,6 +84,8 @@ function richTask(): KanbanState["tasks"][number] {
     primaryAgentProfileId: "agent-profile-1",
     primaryAgentName: "Reviewer",
     primaryExecutorType: "ssh",
+    foregroundActivity: "background",
+    interrupted: true,
     sessionCount: 2,
     isPRReview: true,
     statusSummary: summary({
@@ -97,7 +99,15 @@ function richTask(): KanbanState["tasks"][number] {
         preview: "The check failed",
       },
       git: { changed_files: 2 },
-      pull_request: { count: 1, open_count: 1, attention: true },
+      foreground_activity: "background",
+      pull_request: {
+        count: 1,
+        open_count: 1,
+        attention: true,
+        number: 42,
+        state: "open",
+        aggregate_state: "checks_failed",
+      },
       last_activity_at: "2026-08-31T11:00:00Z",
     }),
   });
@@ -140,6 +150,14 @@ describe("selectThreadCandidates", () => {
       prNeedsAttention: true,
       hasActiveError: true,
       hasMultipleSessions: true,
+      foregroundActivity: "background",
+      interrupted: true,
+      isOnLastWorkflowStep: true,
+      prInfo: {
+        number: 42,
+        state: "Open",
+        aggregateState: "checks_failed",
+      },
     });
   });
 

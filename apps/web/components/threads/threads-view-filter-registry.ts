@@ -193,16 +193,56 @@ export const THREAD_DIMENSION_METAS: readonly ThreadDimensionMeta[] = [
   },
 ];
 
-export const THREAD_SORT_OPTIONS: readonly { key: ThreadSortKey; labelKey: string }[] = [
-  { key: "attention", labelKey: "threads:sortAttention" },
-  { key: "lastActivityAt", labelKey: "threads:sortLastActivity" },
-  { key: "updatedAt", labelKey: "threads:sortUpdated" },
-  { key: "createdAt", labelKey: "threads:sortCreated" },
-  { key: "title", labelKey: "threads:sortTitle" },
-  { key: "taskState", labelKey: "threads:sortTaskState" },
-  { key: "workflow", labelKey: "threads:sortWorkflow" },
-  { key: "priority", labelKey: "threads:sortPriority" },
-  { key: "primaryAgent", labelKey: "threads:sortPrimaryAgent" },
+export const THREAD_SORT_OPTIONS: readonly {
+  key: ThreadSortKey;
+  labelKey: string;
+  descriptionKey: string;
+}[] = [
+  {
+    key: "attention",
+    labelKey: "threads:sortAttention",
+    descriptionKey: "threads:sortAttentionDescription",
+  },
+  {
+    key: "lastActivityAt",
+    labelKey: "threads:sortLastActivity",
+    descriptionKey: "threads:sortLastActivityDescription",
+  },
+  {
+    key: "updatedAt",
+    labelKey: "threads:sortUpdated",
+    descriptionKey: "threads:sortUpdatedDescription",
+  },
+  {
+    key: "createdAt",
+    labelKey: "threads:sortCreated",
+    descriptionKey: "threads:sortCreatedDescription",
+  },
+  {
+    key: "title",
+    labelKey: "threads:sortTitle",
+    descriptionKey: "threads:sortTitleDescription",
+  },
+  {
+    key: "taskState",
+    labelKey: "threads:sortTaskState",
+    descriptionKey: "threads:sortTaskStateDescription",
+  },
+  {
+    key: "workflow",
+    labelKey: "threads:sortWorkflow",
+    descriptionKey: "threads:sortWorkflowDescription",
+  },
+  {
+    key: "priority",
+    labelKey: "threads:sortPriority",
+    descriptionKey: "threads:sortPriorityDescription",
+  },
+  {
+    key: "primaryAgent",
+    labelKey: "threads:sortPrimaryAgent",
+    descriptionKey: "threads:sortPrimaryAgentDescription",
+  },
 ];
 
 const FIXED_OPTIONS: Partial<

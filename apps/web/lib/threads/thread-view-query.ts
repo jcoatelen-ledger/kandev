@@ -1,5 +1,6 @@
 import type { KanbanState, WorkflowSnapshotData } from "@/lib/state/slices/kanban/types";
-import type { TaskPriority, TaskState } from "@/lib/types/http";
+import type { ForegroundActivity, TaskPriority, TaskState } from "@/lib/types/http";
+import { taskPRInfoFromSummary, type TaskPRInfo } from "@/lib/task-pr-info";
 import { selectActiveThreads, type ActiveThread } from "./active-threads";
 import type {
   ThreadFilterClause,
@@ -18,6 +19,9 @@ export type ThreadTaskType = "standard" | "pull_request_review" | "issue_watch";
 export type ThreadCandidate = ActiveThread & {
   workflowStepId: string;
   taskState: TaskState | null;
+  foregroundActivity: ForegroundActivity | null;
+  interrupted: boolean;
+  isOnLastWorkflowStep: boolean;
   priority: TaskPriority | null;
   blocked: boolean;
   labels: string[];
@@ -31,6 +35,7 @@ export type ThreadCandidate = ActiveThread & {
   threadStatus: ThreadStatus;
   hasDiff: boolean;
   hasPR: boolean;
+  prInfo?: TaskPRInfo;
   prNeedsAttention: boolean;
   hasActiveError: boolean;
   hasMultipleSessions: boolean;
@@ -96,13 +101,20 @@ function resolveThreadStatus(thread: ActiveThread): ThreadStatus {
 }
 
 // eslint-disable-next-line complexity -- Projects the complete bounded candidate contract from two authoritative task sources.
-function projectCandidate(task: KanbanTask, thread: ActiveThread): ThreadCandidate {
+function projectCandidate(
+  task: KanbanTask,
+  thread: ActiveThread,
+  isOnLastWorkflowStep: boolean,
+): ThreadCandidate {
   const summary = task.statusSummary;
   const sessionCount = Math.max(1, task.sessionCount ?? 1);
   return {
     ...thread,
     workflowStepId: task.workflowStepId,
     taskState: task.state ?? null,
+    foregroundActivity: summary?.foreground_activity ?? task.foregroundActivity ?? null,
+    interrupted: task.interrupted === true,
+    isOnLastWorkflowStep,
     priority: task.priority ?? null,
     blocked: task.blocked ?? false,
     labels: [...(task.labels ?? [])],
@@ -118,6 +130,7 @@ function projectCandidate(task: KanbanTask, thread: ActiveThread): ThreadCandida
     threadStatus: resolveThreadStatus(thread),
     hasDiff: hasGitChange(task),
     hasPR: hasPullRequest(task),
+    prInfo: taskPRInfoFromSummary(summary),
     prNeedsAttention: task.statusSummary?.pull_request?.attention === true,
     hasActiveError: task.statusSummary?.active_error != null,
     hasMultipleSessions: sessionCount > 1,
@@ -140,16 +153,33 @@ function taskMapForSnapshots(
   return tasks;
 }
 
+function lastWorkflowStepId(snapshot: WorkflowSnapshotData): string | null {
+  let lastStep: WorkflowSnapshotData["steps"][number] | undefined;
+  for (const step of snapshot.steps) {
+    if (!lastStep || step.position > lastStep.position) lastStep = step;
+  }
+  return lastStep?.id ?? null;
+}
+
 /** Project the current workspace's eligible tasks without applying a workflow filter. */
 export function selectThreadCandidates(
   snapshots: Record<string, WorkflowSnapshotData>,
   options: Pick<ThreadViewQueryOptions, "workspaceId"> = {},
 ): ThreadCandidate[] {
   const tasks = taskMapForSnapshots(snapshots, options.workspaceId);
+  const lastStepIdByWorkflowId = new Map(
+    Object.values(snapshots).map((snapshot) => [snapshot.workflowId, lastWorkflowStepId(snapshot)]),
+  );
   return selectActiveThreads(snapshots)
     .map((thread) => {
       const task = tasks.get(thread.taskId);
-      return task ? projectCandidate(task, thread) : null;
+      return task
+        ? projectCandidate(
+            task,
+            thread,
+            lastStepIdByWorkflowId.get(thread.workflowId) === task.workflowStepId,
+          )
+        : null;
     })
     .filter((candidate): candidate is ThreadCandidate => candidate !== null);
 }

@@ -25,7 +25,8 @@ separate saved definitions, but they share query and editor primitives.
 
 ### In scope
 
-- A canonical `All threads` view that preserves the current deck outcome.
+- A canonical `All threads` view with the current attention order and a
+  five-column default.
 - One or many selected tasks, or all eligible tasks.
 - Bounded task, workflow, agent, status, review, and Git filters.
 - Deterministic sort and an optional limit from 1 through 30 columns.
@@ -88,12 +89,12 @@ current header behavior.
 
 ## Tests
 
-| Acceptance criteria | Evidence |
-| --- | --- |
-| `AC-UI-THREADS-SAVED-VIEWS-001.1` through `.9` | User-settings service, store, wire-mapping, header, and saved-view action tests. |
+| Acceptance criteria                             | Evidence                                                                               |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `AC-UI-THREADS-SAVED-VIEWS-001.1` through `.9`  | User-settings service, store, wire-mapping, header, and saved-view action tests.       |
 | `AC-UI-THREADS-SAVED-VIEWS-002.1` through `.11` | Candidate projection and table-driven filter tests, including selected-task retention. |
-| `AC-UI-THREADS-SAVED-VIEWS-003.1` through `.11` | Comparator, admission, stable-order, limit, and deep-link tests. |
-| `AC-UI-THREADS-SAVED-VIEWS-004.1` through `.10` | Desktop component tests plus desktop and mobile Playwright coverage. |
+| `AC-UI-THREADS-SAVED-VIEWS-003.1` through `.13` | Comparator, admission, stable-order, sort-description, limit, and deep-link tests.     |
+| `AC-UI-THREADS-SAVED-VIEWS-004.1` through `.13` | Desktop component tests plus desktop and mobile Playwright coverage.                   |
 
 ## E2E tests
 
@@ -130,6 +131,7 @@ current header behavior.
 - [x] [Task 03: Add desktop Threads view controls](task-03-add-desktop-thread-view-controls.md)
 - [x] [Task 04: Add the mobile Threads view drawer](task-04-add-mobile-thread-view-drawer.md)
 - [x] [Task 05: Prove saved-view behavior and resource bounds](task-05-prove-thread-view-behavior.md)
+- [x] [Task 06: Improve the top-bar view editor](task-06-improve-top-bar-view-editor.md)
 
 All work orders are sequential. They share user-settings types, query state,
 header contracts, editor primitives, and E2E fixtures.
@@ -138,9 +140,11 @@ header contracts, editor primitives, and E2E fixtures.
 
 Implemented and verified. Threads now has persisted, workspace-scoped saved
 views with bounded filtering, deterministic sorting, deep-link admission, live
-stable ordering, desktop controls, and a native mobile drawer. All five work
-orders are complete. Focused unit, backend, lint, localization, typecheck, and
-desktop/mobile browser checks pass.
+stable ordering, desktop controls, and a native mobile drawer. The top-bar
+editor also has sort descriptions, live task-picker metadata, a five-column
+default, and stronger surface separation. All six work orders are complete.
+Focused unit, backend, lint, localization, typecheck, and desktop/mobile
+browser checks pass.
 
 ## Risks
 

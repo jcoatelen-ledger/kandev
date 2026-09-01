@@ -60,10 +60,10 @@ func TestScanUserSettingsEmptyThreadViewListUsesCanonicalDefault(t *testing.T) {
 	}
 }
 
-func TestDefaultThreadViewUsesUnboundedColumns(t *testing.T) {
+func TestDefaultThreadViewUsesFiveColumns(t *testing.T) {
 	view := DefaultThreadViews()[0]
-	if view.MaxColumns != nil {
-		t.Fatalf("default max columns = %v, want nil", *view.MaxColumns)
+	if view.MaxColumns == nil || *view.MaxColumns != 5 {
+		t.Fatalf("default max columns = %v, want 5", view.MaxColumns)
 	}
 	if view.TaskScope.Mode != models.ThreadTaskScopeAll || len(view.TaskScope.TaskIDs) != 0 {
 		t.Fatalf("default task scope = %+v, want all", view.TaskScope)

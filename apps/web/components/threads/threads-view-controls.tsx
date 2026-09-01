@@ -193,7 +193,7 @@ export function ThreadsViewControls({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="max-h-[calc(100dvh-1rem)] w-[min(42rem,calc(100vw-1rem))] overflow-y-auto p-0"
+          className="max-h-[calc(100dvh-1rem)] w-[min(42rem,calc(100vw-1rem))] overflow-y-auto border border-border/80 p-0 shadow-xl ring-1 ring-foreground/20"
           data-testid="threads-view-settings-popover"
         >
           <ThreadsViewEditor

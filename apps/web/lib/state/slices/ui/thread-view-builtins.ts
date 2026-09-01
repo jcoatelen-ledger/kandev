@@ -4,6 +4,7 @@ export const DEFAULT_THREAD_VIEW_ID = "view-all-threads";
 // i18n-exempt: canonical persisted name for the built-in view; renderers may translate this id.
 export const DEFAULT_THREAD_VIEW_NAME = "All threads";
 export const DEFAULT_THREAD_VIEW_NAME_KEY = "threads:allThreads";
+export const DEFAULT_THREAD_VIEW_MAX_COLUMNS = 5;
 export const MAX_THREAD_VIEWS = 50;
 
 export function createDefaultThreadView(id: string, name: string): ThreadView {
@@ -13,7 +14,7 @@ export function createDefaultThreadView(id: string, name: string): ThreadView {
     taskScope: { mode: "all", taskIds: [] },
     filters: [],
     sort: { key: "attention", direction: "asc" },
-    maxColumns: null,
+    maxColumns: DEFAULT_THREAD_VIEW_MAX_COLUMNS,
   };
 }
 
