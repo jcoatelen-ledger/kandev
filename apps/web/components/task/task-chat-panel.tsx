@@ -660,6 +660,7 @@ export const TaskChatPanel = memo(function TaskChatPanel({
           firstMessageId={firstMessageId}
           onFirstMessageHiddenChange={setIsFirstMessageHidden}
           anchoredBarHeight={showAnchoredBar && lastPromptMessage ? anchoredBarHeight : 0}
+          isVisible={isVisible}
           stickyPromptBar={
             showAnchoredBar && lastPromptMessage ? (
               <AnchoredLastPromptBar
