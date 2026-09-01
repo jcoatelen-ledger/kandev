@@ -85,7 +85,7 @@ describe("Threads saved-view hydration", () => {
       name: "All threads",
       taskScope: { mode: "all", taskIds: [] },
       sort: { key: "attention", direction: "asc" },
-      maxColumns: null,
+      maxColumns: 5,
     });
     expect(settings.threadActiveViewId).toBe("view-all-threads");
   });

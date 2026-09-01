@@ -44,6 +44,7 @@ type TestIds = {
   dimension: string;
   op: string;
   value: string;
+  textValue?: string;
   remove: string;
 };
 
@@ -65,6 +66,7 @@ const DEFAULT_TEST_IDS: TestIds = {
   dimension: "filter-dimension-select",
   op: "filter-op-select",
   value: "filter-value-select",
+  textValue: "filter-value-input",
   remove: "filter-clause-remove",
 };
 
@@ -145,7 +147,9 @@ export function TypedFilterClauseEditor<Dimension extends string, Op extends str
         clause={clause}
         meta={meta}
         options={options}
-        valueTestId={testIds.value}
+        valueTestId={
+          meta.valueKind === "text" ? (testIds.textValue ?? testIds.value) : testIds.value
+        }
         mobile={mobile}
         onChange={(value) => onChange({ ...clause, value })}
         valuePlaceholder={meta.placeholder ?? t("task:value")}

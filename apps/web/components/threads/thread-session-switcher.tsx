@@ -21,8 +21,8 @@ import { SessionTabs, type SessionTab } from "@/components/session-tabs";
 import { useResponsiveBreakpoint } from "@/hooks/use-responsive-breakpoint";
 import type { AgentProfileOption } from "@/lib/state/slices";
 import type { TaskSession } from "@/lib/types/http";
-import type { ThreadStatus } from "@/lib/threads/thread-session-status";
 import { isSessionActive, sortSessions } from "@/components/task/session-sort";
+import { resolveThreadSessionStatus, type ThreadStatus } from "@/lib/threads/thread-session-status";
 
 export type ThreadSessionView = {
   session: TaskSession;
@@ -153,12 +153,7 @@ function DesktopSessionTabs({
   const tabs: SessionTab[] = views.map((view) => ({
     id: view.session.id,
     label: view.label,
-    icon: (
-      <ThreadSessionAgentIndicator
-        view={view}
-        testId={`thread-session-agent-icon-${view.session.id}`}
-      />
-    ),
+    icon: <ThreadSessionTabIndicator view={view} />,
     testId: `thread-session-tab-${view.session.id}`,
     className: "bg-transparent data-[state=active]:bg-muted",
   }));
@@ -172,6 +167,26 @@ function DesktopSessionTabs({
         listClassName="min-w-0 w-full max-w-full shrink overflow-x-auto overflow-y-hidden bg-transparent p-0 !h-7 gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       />
     </div>
+  );
+}
+
+function ThreadSessionTabIndicator({ view }: { view: ThreadSessionView }) {
+  const { t } = useTranslation();
+  const status = resolveThreadSessionStatus(view.session);
+  if (status.kind === "permission" || status.kind === "clarification") {
+    return (
+      <ThreadSessionStatusIcon
+        status={status}
+        label={t(status.labelKey)}
+        testId={`thread-session-status-${view.session.id}`}
+      />
+    );
+  }
+  return (
+    <ThreadSessionAgentIndicator
+      view={view}
+      testId={`thread-session-agent-icon-${view.session.id}`}
+    />
   );
 }
 
@@ -253,10 +268,7 @@ function MobileSessionPicker({
                 data-testid={`thread-session-row-${view.session.id}`}
                 onClick={() => handleSelect(view.session.id)}
               >
-                <ThreadSessionAgentIndicator
-                  view={view}
-                  testId={`thread-session-agent-icon-${view.session.id}`}
-                />
+                <ThreadSessionTabIndicator view={view} />
                 <span className="min-w-0 flex-1 truncate text-sm">{view.label}</span>
                 {view.isPrimary && (
                   <span className="shrink-0 text-[10px] text-muted-foreground">

@@ -126,6 +126,26 @@ describe("ThreadSessionSwitcher — desktop identity", () => {
     expect(within(settledTab).getByTestId(`thread-session-agent-icon-${SESSION_A}`)).not.toBeNull();
     expect(within(settledTab).queryByLabelText("Turn finished")).toBeNull();
   });
+
+  it("shows explicit pending attention on the session item", () => {
+    render(
+      <ThreadSessionSwitcher
+        sessions={[
+          session(SESSION_A, "Question", {
+            state: "WAITING_FOR_INPUT",
+            pending_action: "clarification",
+          }),
+          session(SESSION_B, "Builder", { state: "IDLE" }),
+        ]}
+        selectedSessionId={SESSION_B}
+        onSelect={vi.fn()}
+      />,
+    );
+
+    const questionTab = screen.getByRole("tab", { name: /Question/ });
+    expect(within(questionTab).getByLabelText("Question from agent")).not.toBeNull();
+    expect(within(questionTab).queryByTestId(`thread-session-agent-icon-${SESSION_A}`)).toBeNull();
+  });
 });
 
 describe("ThreadSessionSwitcher — desktop interaction", () => {
