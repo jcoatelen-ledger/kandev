@@ -46,6 +46,7 @@ export function ThreadsViewFilterRow({
         dimension: "threads-filter-dimension",
         op: "threads-filter-op",
         value: "threads-filter-value",
+        textValue: "threads-filter-value",
         remove: "threads-filter-remove",
       }}
     />
