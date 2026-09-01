@@ -75,6 +75,7 @@ localization, feature toggles, health, and shared session recovery services.
 
 - [Agent process exit and stderr drain](system-design/agent-process-exit-drain.md)
 - [Agentctl instance stop idempotency](system-design/agentctl-instance-stop.md)
+- [Background Work Liveness](system-design/background-work-liveness.md)
 - [Browser console retention](system-design/browser-console-retention.md)
 - [Bounded Task Status Delivery](system-design/bounded-task-status-delivery.md)
 - [Viewport-bounded Session Delivery](system-design/viewport-bounded-session-delivery.md)

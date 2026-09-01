@@ -8,6 +8,9 @@ const apiMock = vi.hoisted(() => ({
 }));
 
 type MockTaskSessionsState = {
+  taskSessions: {
+    activityEpochBySession: Record<string, number>;
+  };
   taskSessionsByTask: {
     itemsByTaskId: Record<string, TaskSession[]>;
     loadingByTaskId: Record<string, boolean>;
@@ -56,6 +59,7 @@ function setDocumentVisibility(value: DocumentVisibilityState) {
 
 function resetMockState() {
   mockState = {
+    taskSessions: { activityEpochBySession: {} },
     taskSessionsByTask: {
       itemsByTaskId: {},
       loadingByTaskId: {},
@@ -98,7 +102,7 @@ describe("useTaskSessions initial load", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [session("sess-1")]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [session("sess-1")], {});
   });
 
   it("loads sessions on mount when the WebSocket is disconnected", async () => {
@@ -111,10 +115,10 @@ describe("useTaskSessions initial load", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [session("sess-1")]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [session("sess-1")], {});
   });
 
-  it("preserves live session rows without marking an initial failed load authoritative", async () => {
+  it("reconciles existing live rows while exposing an initial load error", async () => {
     const error = new Error(SERVICE_UNAVAILABLE);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const liveSessions = [session("existing"), session("live-upsert")];
@@ -129,7 +133,10 @@ describe("useTaskSessions initial load", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).not.toHaveBeenCalled();
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, liveSessions, {
+      existing: 0,
+      "live-upsert": 0,
+    });
     expect(mockState.setTaskSessionsError).toHaveBeenCalledWith(TASK_ID, SERVICE_UNAVAILABLE);
     expect(consoleError).toHaveBeenCalledWith("Failed to load task sessions:", error);
   });
@@ -224,18 +231,25 @@ describe("useTaskSessions live reconciliation", () => {
     firstResponse.resolve({ sessions: [existing] });
 
     await waitFor(() =>
-      expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-        existing,
-        livePartial,
-      ]),
+      expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+        TASK_ID,
+        [existing, livePartial],
+        {
+          [existing.id]: 0,
+        },
+      ),
     );
     rerender();
 
     await waitFor(() => expect(apiMock.listTaskSessions).toHaveBeenCalledTimes(2));
-    expect(mockState.setTaskSessionsForTask).toHaveBeenLastCalledWith(TASK_ID, [
-      existing,
-      liveHydrated,
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenLastCalledWith(
+      TASK_ID,
+      [existing, liveHydrated],
+      {
+        [existing.id]: 0,
+        [liveHydrated.id]: 0,
+      },
+    );
   });
 });
 
@@ -258,9 +272,32 @@ describe("useTaskSessions refreshes", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      { old: 0 },
+    );
+  });
+
+  // @covers AC-PLATFORM-BACKGROUND-WORK-LIVENESS-001.9
+  it("captures activity epochs before a reconnect refresh", async () => {
+    const existing = session("old", "WAITING_FOR_INPUT");
+    mockState.connection.status = "disconnected";
+    mockState.taskSessions.activityEpochBySession[existing.id] = 4;
+    mockState.taskSessionsByTask.itemsByTaskId[TASK_ID] = [existing];
+    mockState.taskSessionsByTask.loadedByTaskId[TASK_ID] = true;
+    apiMock.listTaskSessions.mockResolvedValueOnce({ sessions: [existing] });
+
+    const { rerender } = renderHook(() => useTaskSessions(TASK_ID));
+    await act(async () => {});
+    mockState.connection.status = "connected";
+    rerender();
+
+    await waitFor(() =>
+      expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [existing], {
+        [existing.id]: 4,
+      }),
+    );
   });
 
   it("preserves a loaded session list when a reconnect refetch fails", async () => {
@@ -286,6 +323,20 @@ describe("useTaskSessions refreshes", () => {
     expect(mockState.setTaskSessionsError).toHaveBeenCalledWith(TASK_ID, "network down");
     expect(consoleError).toHaveBeenCalledWith("Failed to load task sessions:", error);
   });
+});
+
+describe("useTaskSessions queued reconnect refreshes", () => {
+  beforeEach(() => {
+    resetMockState();
+    setDocumentVisibility("visible");
+    apiMock.listTaskSessions.mockResolvedValue({ sessions: [session("sess-1")] });
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
 
   it("resolves a queued forced reload after the deferred request finishes", async () => {
     mockState.taskSessionsByTask.itemsByTaskId[TASK_ID] = [session("old", "RUNNING")];
@@ -309,9 +360,11 @@ describe("useTaskSessions refreshes", () => {
 
     await waitFor(() => expect(resolved).toBe(true));
     await queuedReload;
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      { old: 0 },
+    );
   });
 
   it("queues a reconnect resync while the initial load is still running", async () => {
@@ -336,9 +389,11 @@ describe("useTaskSessions refreshes", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      {},
+    );
   });
 });
 
@@ -370,9 +425,11 @@ describe("useTaskSessions foreground refresh", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      { old: 0 },
+    );
   });
 });
 
@@ -416,9 +473,36 @@ describe("useTaskSessions queued refreshes", () => {
     await waitFor(() => expect(queuedResolved).toBe(true));
     await queuedReload;
     expect(apiMock.listTaskSessions).toHaveBeenCalledTimes(2);
-    expect(mockState.setTaskSessionsForTask).toHaveBeenLastCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenLastCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      { old: 0 },
+    );
+  });
+
+  it("serializes forced reloads started before loading state rerenders", async () => {
+    mockState.taskSessionsByTask.itemsByTaskId[TASK_ID] = [session("old", "RUNNING")];
+    mockState.taskSessionsByTask.loadedByTaskId[TASK_ID] = true;
+    mockState.setTaskSessionsLoading.mockImplementation((id: string, loading: boolean) => {
+      mockState.taskSessionsByTask.loadingByTaskId[id] = loading;
+    });
+    const firstResponse = deferred<{ sessions: TaskSession[] }>();
+    apiMock.listTaskSessions
+      .mockReturnValueOnce(firstResponse.promise)
+      .mockResolvedValueOnce({ sessions: [session("old", "COMPLETED")] });
+
+    const { result, rerender } = renderHook(() => useTaskSessions(TASK_ID));
+    const firstReload = result.current.loadSessions(true);
+    const secondReload = result.current.loadSessions(true);
+    expect(apiMock.listTaskSessions).toHaveBeenCalledTimes(1);
+    rerender();
+
+    firstResponse.resolve({ sessions: [session("old", "RUNNING")] });
+    await firstReload;
+    rerender();
+
+    await secondReload;
+    expect(apiMock.listTaskSessions).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -451,9 +535,11 @@ describe("useTaskSessions foreground refreshes", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      { old: 0 },
+    );
   });
 
   it("runs a forced foreground refetch after an older request finishes", async () => {
@@ -478,9 +564,11 @@ describe("useTaskSessions foreground refreshes", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      { old: 0 },
+    );
   });
 
   it("queues a foreground refetch while the initial load is running", async () => {
@@ -504,9 +592,11 @@ describe("useTaskSessions foreground refreshes", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      {},
+    );
   });
 
   it("refetches a loaded session list on foreground visibility while disconnected", async () => {
@@ -524,8 +614,10 @@ describe("useTaskSessions foreground refreshes", () => {
         cache: "no-store",
       }),
     );
-    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(TASK_ID, [
-      session("old", "COMPLETED"),
-    ]);
+    expect(mockState.setTaskSessionsForTask).toHaveBeenCalledWith(
+      TASK_ID,
+      [session("old", "COMPLETED")],
+      { old: 0 },
+    );
   });
 });
