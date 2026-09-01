@@ -9,23 +9,16 @@ owners:
 
 # UI system
 
-## Purpose
+## Purpose and ownership
 
-UI presentation.
-
-## Ownership
-
-This system owns navigation, settings, boards, task/review UI, walkthroughs,
-chat, feedback, and responsive UI contracts. Task/provider state
-remain with their owning systems.
+The UI owns presentation and interaction. Task and provider state remain with their systems.
 
 ## Exclusions
 
-- Durable task behavior belongs to the [task system](../tasks/README.md).
-- Agent profile behavior belongs to the [agent system](../agents/README.md).
-- Plugin contribution contracts belong to the [plugin system](../plugins/README.md).
-- Provider-specific state and actions belong to the
-  [integration system](../integrations/README.md).
+- Task behavior belongs to [Tasks](../tasks/README.md).
+- Agent profiles belong to [Agents](../agents/README.md).
+- Plugin contributions belong to [Plugins](../plugins/README.md).
+- Provider state and actions belong to [Integrations](../integrations/README.md).
 
 ## Map
 
@@ -50,6 +43,7 @@ remain with their owning systems.
 - [Clarification Shared Context](requirements/clarification-context.md)
 - [Clarification submit feedback](requirements/clarification-submit-feedback.md)
 - [Command-panel Sidebar Task Reveal](requirements/command-panel-sidebar-task-reveal.md)
+- [Command Panel Task Activity Icons](requirements/command-panel-task-activity-icons.md)
 - [Compact Workflow Step Navigation](requirements/compact-workflow-step-navigation.md)
 - [Comment Markdown Rendering](requirements/comment-markdown.md)
 - [Mention recency](requirements/composer-mention-recency.md)
@@ -179,6 +173,7 @@ remain with their owning systems.
 - [Task Agent Tab Reconciliation](system-design/task-agent-tab-reconciliation.md)
 - [Threads Deck](system-design/threads-conversation-deck.md)
 - [Command-panel Sidebar Task Reveal](system-design/command-panel-sidebar-task-reveal.md)
+- [Command Panel Task Activity Icons](system-design/command-panel-task-activity-icons.md)
 - [Terminal Rendering](system-design/terminal-rendering.md)
 - [Thinking Message Preview](system-design/thinking-message-preview.md)
 - [Task Transcript History Visibility](system-design/task-prompt-transcript-visibility.md)
@@ -186,7 +181,7 @@ remain with their owning systems.
 
 ## Migration
 
-Legacy detail is moving above.
+Legacy detail moves above.
 
 ## Related systems
 
