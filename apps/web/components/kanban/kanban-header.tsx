@@ -40,7 +40,7 @@ import { useSystemHealthIndicator } from "@/hooks/use-system-health-indicator";
 import { useQuickChatLauncher } from "@/hooks/use-quick-chat-launcher";
 import { useQuickTerminalLauncher } from "@/hooks/use-quick-terminal-launcher";
 import { TopbarMetrics } from "@/components/system-metrics/topbar-metrics";
-import type { ComponentProps, RefObject } from "react";
+import type { ComponentProps, ReactNode, RefObject } from "react";
 
 type KanbanHeaderProps = {
   workspaceId?: string;
@@ -49,6 +49,7 @@ type KanbanHeaderProps = {
   onSearchChange?: (query: string) => void;
   isSearchLoading?: boolean;
   tasksListOptions?: TasksListDisplayOptions;
+  taskListingControls?: ReactNode;
 };
 
 type ViewToggleItem = {
@@ -224,6 +225,7 @@ function TabletHeader({
   setMenuOpen,
   showHealthIndicator,
   onOpenHealthDialog,
+  taskListingControls,
 }: {
   title: string;
   workspaceLabel: string;
@@ -237,6 +239,7 @@ function TabletHeader({
   setMenuOpen: (open: boolean) => void;
   showHealthIndicator: boolean;
   onOpenHealthDialog: () => void;
+  taskListingControls?: ReactNode;
 }) {
   const { t } = useTranslation();
   const pluginTaskFilters = usePluginTaskFilters();
@@ -267,16 +270,19 @@ function TabletHeader({
           />
           <TopbarMetrics size="lg" />
           <TabletQuickActions workspaceId={workspaceId} />
+          {taskListingControls}
           <TooltipProvider>
             <ViewToggleGroup toggleValue={toggleValue} onValueChange={handleViewChange} size="lg" />
           </TooltipProvider>
-          <KanbanDisplayDropdown
-            triggerSize="icon-lg"
-            currentPage={currentPage}
-            pluginFilters={pluginTaskFilters.filters}
-            pluginFilterSelections={pluginTaskFilters.selections}
-            onPluginFilterChange={pluginTaskFilters.setFilterSelection}
-          />
+          {currentPage !== "threads" && (
+            <KanbanDisplayDropdown
+              triggerSize="icon-lg"
+              currentPage={currentPage}
+              pluginFilters={pluginTaskFilters.filters}
+              pluginFilterSelections={pluginTaskFilters.selections}
+              onPluginFilterChange={pluginTaskFilters.setFilterSelection}
+            />
+          )}
           <HealthIndicatorButton
             hasIssues={showHealthIndicator}
             onClick={onOpenHealthDialog}
@@ -309,6 +315,7 @@ function DesktopHeader({
   handleViewChange,
   showHealthIndicator,
   onOpenHealthDialog,
+  taskListingControls,
 }: {
   title: string;
   workspaceLabel: string;
@@ -321,6 +328,7 @@ function DesktopHeader({
   handleViewChange: (value: string) => void;
   showHealthIndicator: boolean;
   onOpenHealthDialog: () => void;
+  taskListingControls?: ReactNode;
 }) {
   const { t } = useTranslation();
   const headerRef = useRef<HTMLElement>(null);
@@ -353,16 +361,19 @@ function DesktopHeader({
             currentPage={currentPage}
           />
           <TopbarMetrics size="lg" />
+          {taskListingControls}
           <TooltipProvider>
             <ViewToggleGroup toggleValue={toggleValue} onValueChange={handleViewChange} size="lg" />
           </TooltipProvider>
-          <KanbanDisplayDropdown
-            triggerSize="icon-lg"
-            currentPage={currentPage}
-            pluginFilters={pluginTaskFilters.filters}
-            pluginFilterSelections={pluginTaskFilters.selections}
-            onPluginFilterChange={pluginTaskFilters.setFilterSelection}
-          />
+          {currentPage !== "threads" && (
+            <KanbanDisplayDropdown
+              triggerSize="icon-lg"
+              currentPage={currentPage}
+              pluginFilters={pluginTaskFilters.filters}
+              pluginFilterSelections={pluginTaskFilters.selections}
+              onPluginFilterChange={pluginTaskFilters.setFilterSelection}
+            />
+          )}
           <HealthIndicatorButton
             hasIssues={showHealthIndicator}
             onClick={onOpenHealthDialog}
@@ -401,6 +412,7 @@ export function KanbanHeader({
   onSearchChange,
   isSearchLoading = false,
   tasksListOptions,
+  taskListingControls,
 }: KanbanHeaderProps) {
   const { t } = useTranslation();
   const { isMobile, isTablet } = useResponsiveBreakpoint();
@@ -427,6 +439,7 @@ export function KanbanHeader({
           currentPage={currentPage}
           title={title}
           workspaceLabel={workspaceLabel}
+          taskListingControls={taskListingControls}
           {...sharedSearch}
           tasksListOptions={tasksListOptions}
         />
@@ -444,6 +457,7 @@ export function KanbanHeader({
             toggleValue={toggleValue}
             handleViewChange={handleViewChange}
             setMenuOpen={setMenuOpen}
+            taskListingControls={taskListingControls}
             {...healthProps}
           />
           <MobileMenuSheet
@@ -464,6 +478,7 @@ export function KanbanHeader({
         workspaceId={workspaceId}
         currentPage={currentPage}
         {...sharedSearch}
+        taskListingControls={taskListingControls}
         toggleValue={toggleValue}
         handleViewChange={handleViewChange}
         {...healthProps}

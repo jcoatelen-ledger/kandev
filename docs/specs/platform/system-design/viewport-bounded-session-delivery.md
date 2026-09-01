@@ -33,7 +33,7 @@ The client uses three explicit layers:
 
 | Layer | Source | Content | Activation |
 | --- | --- | --- | --- |
-| Task shell | workflow snapshots plus `task.status_summary.updated` | bounded task identity, ordering, review, aggregate attention and activity | all eligible tasks |
+| Task shell | workflow snapshots plus `task.status_summary.updated` | bounded task identity, ordering, review, aggregate attention and activity | task shells admitted by the active Threads view |
 | Session selector | `GET /tasks/:taskId/sessions`, `session.state_changed`, compact pending-action event | bounded session rows, no transcript | preload window only |
 | Conversation detail | `message.list` plus `session.subscribe` | selected session transcript and rich live state | detail window and selected session only |
 
@@ -160,4 +160,3 @@ not every task or every sibling tab.
 
 - [Viewport Activation Owns Threads Session Streams](../../../decisions/2026-08-28-viewport-activation-owns-thread-streams.md)
 - [Separate Task Summary and Session Stream Traffic](../../../decisions/2026-08-01-separate-task-summary-session-stream-traffic.md)
-

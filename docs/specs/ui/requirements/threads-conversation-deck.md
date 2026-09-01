@@ -11,10 +11,10 @@ owners:
 ## Overview
 
 Threads gives a user one horizontally scrollable view of current task
-conversations. A task can have several agent sessions, but the current view
-shows only the primary session and treats every `WAITING_FOR_INPUT` state as a
-question. The deck must let the user switch existing sessions, show accurate
-attention states, and stay usable when a workspace has many active tasks.
+conversations. A task can have several agent sessions, and its column can
+switch among those existing sessions. Only an explicit pending action marks a
+question or permission. The deck must show accurate attention states and stay
+usable when a workspace has many active tasks.
 
 The UI system owns the responsive interaction and presentation contract. The
 platform owns the bounded status and session-stream delivery contract in
@@ -52,9 +52,8 @@ leaving Threads.
 - **AC-UI-THREADS-DECK-001.3:** When the user selects a session, only that task
   column shall change its conversation. The selection shall not change another
   task column or the full task page's active session.
-- **AC-UI-THREADS-DECK-001.4:** When a selected session remains a member of the
-  task, status changes in another session shall not take selection from the
-  user. The other session shall show its new status in its selector item.
+- **AC-UI-THREADS-DECK-001.4:** When a valid session stays selected, another
+  session status change shall not change the selection.
 - **AC-UI-THREADS-DECK-001.5:** When no valid user selection exists, the system
   shall select, in order, a session requested by the URL, a session with an
   explicit pending action, an active session, the primary session, or the
@@ -66,6 +65,12 @@ leaving Threads.
   session that is still a member of the task, the URL shall identify both the
   task and session, the deck shall reveal the task column, and that session
   shall become selected.
+- **AC-UI-THREADS-DECK-001.8:** Each selector item shall show the effective agent
+  profile name. If profile data is not available, it shall show the custom
+  session name or the existing fallback label.
+- **AC-UI-THREADS-DECK-001.9:** A settled selector item shall show the agent
+  icon. A `STARTING` or `RUNNING` item shall replace that icon with the grid
+  spinner.
 
 ### REQ-UI-THREADS-DECK-002: Accurate attention state
 
@@ -74,24 +79,23 @@ completed turn as an agent question.
 
 #### Acceptance criteria
 
-- **AC-UI-THREADS-DECK-002.1:** When a session has a pending clarification, the
-  system shall show a question indicator and a localized question label for
-  that session.
-- **AC-UI-THREADS-DECK-002.2:** When a session has a pending permission, the
-  system shall show a permission indicator and a localized permission label for
-  that session.
+- **AC-UI-THREADS-DECK-002.1:** When the selected session has a pending
+  clarification, the task column shall show a question indicator and a
+  localized question label.
+- **AC-UI-THREADS-DECK-002.2:** When the selected session has a pending
+  permission, the task column shall show a permission indicator and a localized
+  permission label.
 - **AC-UI-THREADS-DECK-002.3:** When a session is `WAITING_FOR_INPUT` without an
   explicit pending action, the system shall not show a question or permission
   indicator.
 - **AC-UI-THREADS-DECK-002.4:** When a task is in its review outcome and no
   session needs an explicit action, the task column shall show a completion
   indicator with the localized label `Ready for review`.
-- **AC-UI-THREADS-DECK-002.5:** When a session is starting or doing foreground
-  work, its selector item and selected conversation shall show the current
-  starting or working state without requiring its transcript to be loaded.
-- **AC-UI-THREADS-DECK-002.6:** When an unselected session needs attention, the
-  task column shall expose that state in its session control without
-  automatically opening the session.
+- **AC-UI-THREADS-DECK-002.5:** When a session is `STARTING` or `RUNNING`, its
+  selector item shall show the grid spinner without loading its transcript.
+- **AC-UI-THREADS-DECK-002.6:** When no valid selection exists and a session
+  needs attention, the task column shall select that session without loading
+  another transcript first.
 
 ### REQ-UI-THREADS-DECK-003: Responsive bounded deck
 
@@ -116,8 +120,8 @@ desktop and mobile navigation.
   of the metadata row instead of a nested horizontal tab strip.
 - **AC-UI-THREADS-DECK-003.5:** The phone session picker shall open a bottom
   sheet with one row per existing session. Each row shall have a touch target
-  of at least 44 by 44 CSS pixels and shall show the same session status as the
-  desktop tabs.
+  of at least 44 by 44 CSS pixels. Each row shall show the same agent identity
+  or grid spinner as the desktop tabs.
 - **AC-UI-THREADS-DECK-003.6:** Long task metadata or many session names shall
   stay inside the task-column header. Desktop session tabs may scroll inside
   their right-side region, and the document shall not gain horizontal
@@ -135,3 +139,5 @@ desktop and mobile navigation.
 - Replacing the full task workbench or its independent agent-tab behavior.
 - Full DOM virtualization of lightweight task-column shells.
 
+Task-column scope, filters, sort, limits, and saved view persistence are in
+[Threads Saved Views](threads-saved-views.md).

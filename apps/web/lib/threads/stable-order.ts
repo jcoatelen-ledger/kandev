@@ -20,6 +20,7 @@ import type { ActiveThread } from "./active-threads";
 export function applyStableThreadOrder(
   previousOrder: readonly string[],
   threads: readonly ActiveThread[],
+  maxItems: number | null = null,
 ): ActiveThread[] {
   const byTaskId = new Map(threads.map((thread) => [thread.taskId, thread]));
   const held = previousOrder
@@ -28,7 +29,8 @@ export function applyStableThreadOrder(
 
   const heldIds = new Set(held.map((thread) => thread.taskId));
   const arrived = threads.filter((thread) => !heldIds.has(thread.taskId));
-  return [...held, ...arrived];
+  const ordered = [...held, ...arrived];
+  return maxItems === null ? ordered : ordered.slice(0, Math.max(0, maxItems));
 }
 
 /**
@@ -40,16 +42,32 @@ export function applyStableThreadOrder(
  * correct because the ordering is a pure function of the committed order and
  * the current threads.
  */
-export function useStableThreadOrder(threads: ActiveThread[]): ActiveThread[] {
+export function useStableThreadOrder(
+  threads: ActiveThread[],
+  resetKey?: string | number,
+  options: {
+    /** Sorted/capped columns to use for an intentional reset. */
+    resetThreads?: ActiveThread[];
+    /** Hard admission bound for normal live reconciliation. */
+    maxItems?: number | null;
+  } = {},
+): ActiveThread[] {
   const orderRef = useRef<string[]>([]);
+  const resetKeyRef = useRef<string | number | undefined>(resetKey);
+  const isReset = resetKeyRef.current !== resetKey;
+  const resetThreads = options.resetThreads ?? threads;
+  const maxItems = options.maxItems ?? null;
+  const source = isReset ? resetThreads : threads;
+  const previousOrder = isReset ? [] : orderRef.current;
   const ordered = useMemo(
-    () => applyStableThreadOrder(orderRef.current, threads),
+    () => applyStableThreadOrder(previousOrder, source, maxItems),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the ref is the
     // carried-over order, deliberately read without re-running on its change.
-    [threads],
+    [maxItems, resetKey, source],
   );
   useLayoutEffect(() => {
     orderRef.current = ordered.map((thread) => thread.taskId);
-  }, [ordered]);
+    resetKeyRef.current = resetKey;
+  }, [ordered, resetKey]);
   return ordered;
 }

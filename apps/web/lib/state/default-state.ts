@@ -23,6 +23,7 @@ import type { HydrationState } from "./store";
 import { seedSettledSessionBoundaries } from "@/lib/state/slices/session/turn-actions";
 import { migrateSidebarViewDraft, migrateView } from "./slices/ui/ui-slice";
 import { mergeAgentProfileRecentUseState } from "@/lib/agent-profile-recent-use";
+import { normalizeThreadViews } from "./slices/ui/thread-view-builtins";
 
 export const defaultState = {
   kanban: defaultKanbanState.kanban,
@@ -127,6 +128,7 @@ export const defaultState = {
   sessionFailureNotification: defaultUIState.sessionFailureNotification,
   bottomTerminal: defaultUIState.bottomTerminal,
   sidebarViews: defaultUIState.sidebarViews,
+  threadViews: defaultUIState.threadViews,
   collapsedSubtaskParents: defaultUIState.collapsedSubtaskParents,
   kanbanPreviewedTaskId: defaultUIState.kanbanPreviewedTaskId,
   sidebarTaskPrefs: defaultUIState.sidebarTaskPrefs,
@@ -203,6 +205,24 @@ function mergeSidebarViewState(initialState: HydrationState): DefaultState["side
       : null;
   }
   return sidebarViews;
+}
+
+/** Merge Threads saved views from user settings over the UI defaults. */
+function mergeThreadViewState(initialState: HydrationState): DefaultState["threadViews"] {
+  const threadViews = { ...defaultState.threadViews, ...initialState.threadViews };
+  const serverViews = initialState.userSettings?.threadViews;
+  if (serverViews) threadViews.views = normalizeThreadViews(serverViews);
+
+  const activeViewId = initialState.userSettings?.threadActiveViewId;
+  if (activeViewId && threadViews.views.some((view) => view.id === activeViewId)) {
+    threadViews.activeViewId = activeViewId;
+  } else if (!threadViews.views.some((view) => view.id === threadViews.activeViewId)) {
+    threadViews.activeViewId = threadViews.views[0].id;
+  }
+  if (initialState.userSettings?.threadViewDraft !== undefined) {
+    threadViews.draft = initialState.userSettings.threadViewDraft;
+  }
+  return threadViews;
 }
 
 /** Merge sidebar task prefs, copying the server-provided pinned, ordered, and subtask-order lists from user settings over defaults. */
@@ -476,6 +496,7 @@ function mergeUIPanelState(initialState: HydrationState) {
     sessionFailureNotification: mergeSessionFailureNotification(initialState),
     bottomTerminal: { ...defaultState.bottomTerminal, ...initialState.bottomTerminal },
     sidebarViews: mergeSidebarViewState(initialState),
+    threadViews: mergeThreadViewState(initialState),
     sidebarTaskPrefs: mergeSidebarTaskPrefsState(initialState),
     collapsedSubtaskParents:
       initialState.collapsedSubtaskParents ?? defaultState.collapsedSubtaskParents,

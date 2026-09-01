@@ -12,40 +12,67 @@ import {
 } from "@tabler/icons-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AgentLogo } from "@/components/agent-logo";
+import { useAppStore } from "@/components/state-provider";
+import { GridSpinner } from "@/components/grid-spinner";
 import { MobilePickerSheet } from "@/components/task/mobile/mobile-picker-sheet";
 import { MobilePillButton } from "@/components/task/mobile/mobile-pill-button";
 import { SessionTabs, type SessionTab } from "@/components/session-tabs";
 import { useResponsiveBreakpoint } from "@/hooks/use-responsive-breakpoint";
+import type { AgentProfileOption } from "@/lib/state/slices";
 import type { TaskSession } from "@/lib/types/http";
-import { resolveThreadSessionStatus, type ThreadStatus } from "@/lib/threads/thread-session-status";
-import { sortSessions } from "@/components/task/session-sort";
+import type { ThreadStatus } from "@/lib/threads/thread-session-status";
+import { isSessionActive, sortSessions } from "@/components/task/session-sort";
 
 export type ThreadSessionView = {
   session: TaskSession;
   label: string;
-  status: ThreadStatus;
+  agentName: string | null;
   isPrimary: boolean;
-  position: number;
 };
 
-function sessionLabel(session: TaskSession, position: number, fallbackLabel: string): string {
+const LABEL_SEPARATOR = " \u2022 ";
+
+function sessionLabel(
+  session: TaskSession,
+  profilesById: Record<string, AgentProfileOption>,
+  position: number,
+  fallbackLabel: string,
+): string {
+  const profileLabel = session.agent_profile_id
+    ? profilesById[session.agent_profile_id]?.label
+    : undefined;
+  const snapshotLabel =
+    typeof session.agent_profile_snapshot?.label === "string"
+      ? session.agent_profile_snapshot.label
+      : undefined;
+  const fullLabel = profileLabel ?? snapshotLabel;
+  if (fullLabel) {
+    const parts = fullLabel.split(LABEL_SEPARATOR);
+    return parts[1] ?? parts[0] ?? fullLabel;
+  }
   if (session.name) return session.name;
-  const snapshotLabel = session.agent_profile_snapshot?.label;
-  if (typeof snapshotLabel === "string" && snapshotLabel) return snapshotLabel;
   return fallbackLabel ? fallbackLabel.replace("{{position}}", String(position)) : session.id;
 }
 
 export function buildThreadSessionViews(
   sessions: readonly TaskSession[],
+  agentProfiles: readonly AgentProfileOption[] = [],
   fallbackLabel = "",
 ): ThreadSessionView[] {
-  return sortSessions(sessions).map((session, index) => ({
-    session,
-    label: sessionLabel(session, index + 1, fallbackLabel),
-    status: resolveThreadSessionStatus(session),
-    isPrimary: session.is_primary === true,
-    position: index + 1,
-  }));
+  const profilesById = Object.fromEntries(agentProfiles.map((profile) => [profile.id, profile]));
+  return sortSessions(sessions).map((session, index) => {
+    const profile = session.agent_profile_id ? profilesById[session.agent_profile_id] : undefined;
+    const snapshotAgentName = session.agent_profile_snapshot?.agent_id;
+    return {
+      session,
+      label: sessionLabel(session, profilesById, index + 1, fallbackLabel),
+      agentName:
+        profile?.agent_name ??
+        (typeof snapshotAgentName === "string" && snapshotAgentName ? snapshotAgentName : null),
+      isPrimary: session.is_primary === true,
+    };
+  });
 }
 
 export function ThreadSessionStatusIcon({
@@ -123,11 +150,15 @@ function DesktopSessionTabs({
   selectedSessionId: string | null;
   onSelect: (sessionId: string) => void;
 }) {
-  const { t } = useTranslation();
   const tabs: SessionTab[] = views.map((view) => ({
     id: view.session.id,
     label: view.label,
-    icon: <ThreadSessionStatusIcon status={view.status} label={t(view.status.labelKey)} />,
+    icon: (
+      <ThreadSessionAgentIndicator
+        view={view}
+        testId={`thread-session-agent-icon-${view.session.id}`}
+      />
+    ),
     testId: `thread-session-tab-${view.session.id}`,
     className: "bg-transparent data-[state=active]:bg-muted",
   }));
@@ -141,6 +172,32 @@ function DesktopSessionTabs({
         listClassName="min-w-0 w-full max-w-full shrink overflow-x-auto overflow-y-hidden bg-transparent p-0 !h-7 gap-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       />
     </div>
+  );
+}
+
+function ThreadSessionAgentIndicator({
+  view,
+  testId,
+}: {
+  view: ThreadSessionView;
+  testId: string;
+}) {
+  if (isSessionActive(view.session.state)) {
+    return <GridSpinner className="h-3 w-3 shrink-0 text-muted-foreground" />;
+  }
+  if (view.agentName) {
+    return (
+      <span data-testid={testId} className="flex h-3 w-3 shrink-0 items-center" aria-hidden="true">
+        <AgentLogo agentName={view.agentName} size={12} className="shrink-0" />
+      </span>
+    );
+  }
+  return (
+    <span
+      data-testid={testId}
+      aria-hidden="true"
+      className="h-3 w-3 shrink-0 rounded-full bg-muted-foreground/40"
+    />
   );
 }
 
@@ -185,7 +242,6 @@ function MobileSessionPicker({
       >
         <div role="list" className="flex flex-col gap-1">
           {views.map((view) => {
-            const statusLabel = t(view.status.labelKey);
             const isSelected = view.session.id === selected?.session.id;
             return (
               <button
@@ -197,10 +253,9 @@ function MobileSessionPicker({
                 data-testid={`thread-session-row-${view.session.id}`}
                 onClick={() => handleSelect(view.session.id)}
               >
-                <ThreadSessionStatusIcon
-                  status={view.status}
-                  label={statusLabel}
-                  testId={`thread-session-status-${view.session.id}`}
+                <ThreadSessionAgentIndicator
+                  view={view}
+                  testId={`thread-session-agent-icon-${view.session.id}`}
                 />
                 <span className="min-w-0 flex-1 truncate text-sm">{view.label}</span>
                 {view.isPrimary && (
@@ -233,7 +288,8 @@ export function ThreadSessionSwitcher({
   onSelect: (sessionId: string) => void;
 }) {
   const { isMobile } = useResponsiveBreakpoint();
-  const views = buildThreadSessionViews(sessions);
+  const agentProfiles = useAppStore((state) => state.agentProfiles.items);
+  const views = buildThreadSessionViews(sessions, agentProfiles);
   if (views.length <= 1) return null;
 
   return isMobile ? (

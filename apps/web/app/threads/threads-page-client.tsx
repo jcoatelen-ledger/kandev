@@ -4,13 +4,16 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "@/lib/routing/client-router";
 import { KanbanHeader } from "@/components/kanban/kanban-header";
 import { ThreadsBoard } from "@/components/threads/threads-board";
+import { ThreadsViewControls } from "@/components/threads/threads-view-controls";
 import { useAppStore } from "@/components/state-provider";
 import { useAllWorkflowSnapshots } from "@/hooks/domains/kanban/use-all-workflow-snapshots";
 import { useKanbanDisplaySettings } from "@/hooks/use-kanban-display-settings";
 import { useTaskListingView } from "@/hooks/use-task-listing-view";
 import { linkToTask } from "@/lib/links";
-import { resolveFocusedThreadId, selectActiveThreads } from "@/lib/threads/active-threads";
+import { resolveFocusedThreadId } from "@/lib/threads/active-threads";
 import { useStableThreadOrder } from "@/lib/threads/stable-order";
+import { DEFAULT_THREAD_VIEW } from "@/lib/state/slices/ui/thread-view-builtins";
+import { queryThreadView } from "@/lib/threads/thread-view-query";
 import { useKanbanRouteBootstrap } from "@/src/kanban-route";
 import type { WorkflowSnapshotData } from "@/lib/state/slices/kanban/types";
 
@@ -57,10 +60,18 @@ export function ThreadsPageClient() {
     [requestedWorkspaceId],
   );
   useKanbanRouteBootstrap(bootstrapRoute, false);
-  const { activeWorkspaceId, activeWorkflowId, workflows, workspaces } = useKanbanDisplaySettings();
+  const { activeWorkspaceId, workflows, workspaces, repositories } = useKanbanDisplaySettings();
   const { setView } = useTaskListingView();
   const snapshots = useAppStore((state) => state.kanbanMulti.snapshots);
   const isLoading = useAppStore((state) => state.kanbanMulti.isLoading);
+  const storedThreadViews = useAppStore((state) => state.threadViews);
+  const threadViews = storedThreadViews ?? {
+    views: [DEFAULT_THREAD_VIEW],
+    activeViewId: DEFAULT_THREAD_VIEW.id,
+    draft: null,
+    syncError: null,
+    orderResetGeneration: 0,
+  };
 
   // Keep a valid deep-link workspace during the bootstrap transition, but use
   // the resolved active workspace when a stale or invalid link is supplied.
@@ -82,13 +93,28 @@ export function ThreadsPageClient() {
     setView("threads");
   }, [setView]);
 
-  const ranked = useMemo(
-    () => selectActiveThreads(scopedSnapshots, { workflowId: activeWorkflowId }),
-    [scopedSnapshots, activeWorkflowId],
+  const activeThreadView =
+    threadViews.views.find((view) => view.id === threadViews.activeViewId) ?? DEFAULT_THREAD_VIEW;
+  const requestedTaskId = searchParams.get("taskId");
+  const query = useMemo(
+    () =>
+      queryThreadView(scopedSnapshots, activeThreadView, {
+        workspaceId: scopedWorkspaceId,
+        requestedTaskId,
+        draft: threadViews.draft,
+      }),
+    [scopedSnapshots, scopedWorkspaceId, activeThreadView, requestedTaskId, threadViews.draft],
   );
   // Ranking decides where a column first appears; after that the slot is the
   // reader's, so replying to a thread cannot slide it across the deck.
-  const threads = useStableThreadOrder(ranked);
+  const threads = useStableThreadOrder(
+    query.stableCandidates,
+    `${query.fingerprint}:${requestedTaskId ?? ""}:${threadViews.orderResetGeneration}`,
+    {
+      resetThreads: query.admittedCandidates,
+      maxItems: query.effectiveView.maxColumns,
+    },
+  );
 
   const handleOpenTask = useCallback((taskId: string) => router.push(linkToTask(taskId)), [router]);
   const handleInvalidRequestedSession = useCallback(
@@ -112,7 +138,19 @@ export function ThreadsPageClient() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
-      <KanbanHeader workspaceId={activeWorkspaceId ?? undefined} currentPage="threads" />
+      <KanbanHeader
+        workspaceId={activeWorkspaceId ?? undefined}
+        currentPage="threads"
+        taskListingControls={
+          <ThreadsViewControls
+            candidates={query.candidates}
+            repositories={repositories}
+            admittedCount={query.admittedCandidates.length}
+            matchingCount={query.matchingCount + query.temporaryAdmissionCount}
+            hiddenCount={query.hiddenCount}
+          />
+        }
+      />
       <div className="min-h-0 flex-1">
         <ThreadsBoard
           threads={threads}

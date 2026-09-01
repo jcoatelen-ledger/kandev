@@ -40,9 +40,9 @@ system_design:
 
 ## Summary
 
-Add column-local existing-session selection, accurate compact status, desktop
-same-row tabs, a phone picker, and exact task/session deep links. Only the
-selected session can mount a conversation.
+Add column-local existing-session selection, agent identity, desktop same-row
+tabs, a phone picker, and exact task/session deep links. Only the selected
+session can mount a conversation.
 
 ## In scope
 
@@ -57,8 +57,10 @@ selected session can mount a conversation.
 - Render a phone pill and `MobilePickerSheet` with 44-pixel rows.
 - Keep selection local per task and preserve it through status changes.
 - Add `sessionId` to Threads links, validation, focus, and local fallback.
-- Correct question, permission, working, turn-finished, and review-ready icons
-  and labels.
+- Show agent profile names and icons in session selectors. Replace the agent
+  icon with `GridSpinner` while a session is `STARTING` or `RUNNING`.
+- Keep question, permission, working, turn-finished, and review-ready states in
+  the task-column status.
 - Add required locale keys in `en`, `pt-pt`, `zh-cn`, `zh-hk`, and `zh-tw`.
 - Keep `TaskChatPanel` on its standard no-custom-`onSend` path.
 
@@ -74,8 +76,11 @@ selected session can mount a conversation.
   session registration.
 - Unselected compact statuses update without transcript mounts and do not steal
   selection.
-- Plain `WAITING_FOR_INPUT` has no question icon; explicit clarification,
-  permission, and review-ready states remain distinct.
+- Session selectors show the effective agent profile name. They use a custom
+  session name only when profile data is not available. Settled sessions show
+  the agent icon, and active sessions show the grid spinner.
+- Plain `WAITING_FOR_INPUT` has no question icon in the task-column status.
+  Explicit clarification, permission, and review-ready states remain distinct.
 - Phone uses one metadata-row pill and an accessible bottom sheet, not nested
   horizontal tabs.
 
@@ -139,3 +144,7 @@ terminal primary sessions with a review outcome. Initial session-list failures
 now show a recoverable Retry state, and the desktop tab flex item has the width
 constraint. The automatic initial load stays quiet after an error until an
 explicit retry. The focused frontend suite passes 127 tests.
+
+The selector follow-up resolves each agent profile from the workspace store.
+Desktop tabs and phone rows show the agent profile name and icon. A `STARTING`
+or `RUNNING` session shows `GridSpinner` in place of the icon.

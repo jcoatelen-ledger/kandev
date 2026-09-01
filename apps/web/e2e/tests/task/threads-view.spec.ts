@@ -192,6 +192,66 @@ test.describe("Threads view", () => {
     expect(widths[0] + widths[1]).toBeGreaterThan(boardWidth * 0.8);
   });
 
+  test("saves a capped view, switches views, and restores it after reload", async ({
+    testPage,
+    apiClient,
+    seedData,
+  }) => {
+    test.setTimeout(360_000);
+    await startAgentTask(testPage, apiClient, seedData, "threads-saved-view-a");
+    await startAgentTask(testPage, apiClient, seedData, "threads-saved-view-b", {
+      title: "Threads saved view second work",
+    });
+    await startAgentTask(testPage, apiClient, seedData, "threads-saved-view-c", {
+      title: "Threads saved view third work",
+    });
+
+    await testPage.goto("/threads");
+    const board = testPage.getByTestId("threads-board");
+    await expect(board.locator("[data-thread-column-id]")).toHaveCount(3);
+
+    await testPage.getByTestId("threads-view-picker").click();
+    await testPage.getByTestId("threads-new-view").click();
+    const editor = testPage.getByTestId("threads-view-settings-popover");
+    await expect(editor).toBeVisible();
+    await editor.getByTestId("threads-max-columns").fill("1");
+    const savedViewResponse = testPage.waitForResponse((response) => {
+      const request = response.request();
+      if (
+        !response.ok() ||
+        request.method() !== "PATCH" ||
+        !request.url().includes("/api/v1/user/settings")
+      ) {
+        return false;
+      }
+      const payload = request.postDataJSON() as {
+        thread_view_draft?: unknown;
+        thread_views?: Array<{ max_columns?: number | null }>;
+      } | null;
+      return (
+        payload?.thread_view_draft === null &&
+        payload.thread_views?.some((view) => view.max_columns === 1) === true
+      );
+    });
+    await editor.getByTestId("threads-view-save").click();
+    await savedViewResponse;
+
+    await expect(board.locator("[data-thread-column-id]")).toHaveCount(1);
+    await expect(testPage.getByTestId("threads-view-count")).toContainText("1 of 3 columns");
+    await expect(testPage.getByTestId("threads-view-count")).toContainText("2 hidden");
+
+    // The saved view remains active after a full page bootstrap.
+    await testPage.reload();
+    await expect(board.locator("[data-thread-column-id]")).toHaveCount(1);
+    await expect(testPage.getByTestId("threads-view-picker")).toContainText("New view");
+
+    // Switching back to the built-in view restores all eligible columns. The
+    // sidebar's saved-view state is not involved in this interaction.
+    await testPage.getByTestId("threads-view-picker").click();
+    await testPage.getByTestId("threads-view-option-view-all-threads").click();
+    await expect(board.locator("[data-thread-column-id]")).toHaveCount(3);
+  });
+
   test("shows which column the cursor is in, and moves that mark on click", async ({
     testPage,
     apiClient,

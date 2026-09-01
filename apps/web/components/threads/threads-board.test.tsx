@@ -48,6 +48,11 @@ vi.mock("@/hooks/use-task-sessions", () => ({
   useTaskSessions: sessionMocks.useTaskSessions,
 }));
 
+vi.mock("@/components/state-provider", () => ({
+  useAppStore: (selector: (state: { agentProfiles: { items: [] } }) => unknown) =>
+    selector({ agentProfiles: { items: [] } }),
+}));
+
 import { ThreadsBoard } from "./threads-board";
 
 afterEach(() => {

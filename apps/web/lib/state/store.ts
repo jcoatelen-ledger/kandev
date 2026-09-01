@@ -256,6 +256,7 @@ export type AppState = KanbanSlice & {
   updateAvailableNotification: (typeof defaultUIState)["updateAvailableNotification"];
   bottomTerminal: (typeof defaultUIState)["bottomTerminal"];
   sidebarViews: (typeof defaultUIState)["sidebarViews"];
+  threadViews: (typeof defaultUIState)["threadViews"];
   collapsedSubtaskParents: (typeof defaultUIState)["collapsedSubtaskParents"];
   kanbanPreviewedTaskId: (typeof defaultUIState)["kanbanPreviewedTaskId"];
   sidebarTaskPrefs: (typeof defaultUIState)["sidebarTaskPrefs"];
@@ -567,6 +568,16 @@ export type AppState = KanbanSlice & {
   toggleSidebarGroupCollapsed: UIA["toggleSidebarGroupCollapsed"];
   toggleSubtaskCollapsed: UIA["toggleSubtaskCollapsed"];
   clearSidebarSyncError: UIA["clearSidebarSyncError"];
+  updateThreadViewDraft: UIA["updateThreadViewDraft"];
+  saveThreadViewDraftAs: UIA["saveThreadViewDraftAs"];
+  saveThreadViewDraftOverwrite: UIA["saveThreadViewDraftOverwrite"];
+  discardThreadViewDraft: UIA["discardThreadViewDraft"];
+  deleteThreadView: UIA["deleteThreadView"];
+  renameThreadView: UIA["renameThreadView"];
+  duplicateThreadView: UIA["duplicateThreadView"];
+  reapplyThreadViewSort: UIA["reapplyThreadViewSort"];
+  retryThreadViewSync: UIA["retryThreadViewSync"];
+  clearThreadViewSyncError: UIA["clearThreadViewSyncError"];
   clearSidebarTaskPrefsSyncError: UIA["clearSidebarTaskPrefsSyncError"];
   setKanbanPreviewedTaskId: UIA["setKanbanPreviewedTaskId"];
   togglePinnedTask: UIA["togglePinnedTask"];
@@ -592,7 +603,8 @@ export type AppState = KanbanSlice & {
   restoreRichOutputAnimations: UIA["restoreRichOutputAnimations"];
   acknowledgeAgentErrors: UIA["acknowledgeAgentErrors"];
   dismissAgentError: UIA["dismissAgentError"];
-} & GitHubSliceActions &
+} & Pick<UIA, "setThreadActiveView" | "createThreadView"> &
+  GitHubSliceActions &
   GitLabSliceActions &
   JiraSliceActions &
   LinearSliceActions &
@@ -663,8 +675,6 @@ export function createAppStore(initialState?: HydrationState) {
       ...createAutomationsSlice(set as any, get as any, api as any),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...createPluginsSlice(set as any, get as any, api as any),
-      // createReviewSlice only needs `set`; passing get/api would be superfluous
-      // arguments (CodeQL js/superfluous-trailing-arguments).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...createReviewSlice(set as any),
       // Re-assert merged initial state so caller-supplied values win over slice defaults.
@@ -674,7 +684,6 @@ export function createAppStore(initialState?: HydrationState) {
     })),
   );
 }
-
 export type StoreProviderProps = {
   children: React.ReactNode;
   initialState?: HydrationState;

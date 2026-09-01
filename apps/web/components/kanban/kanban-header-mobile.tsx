@@ -31,6 +31,7 @@ type KanbanHeaderMobileProps = {
   onSearchChange?: (query: string) => void;
   isSearchLoading?: boolean;
   tasksListOptions?: TasksListDisplayOptions;
+  taskListingControls?: ReactNode;
 };
 
 function MobileBrandLink({ workspaceId }: Pick<KanbanHeaderMobileProps, "workspaceId">) {
@@ -101,6 +102,7 @@ function MobileHeaderActionItems({
   handleOpenQuickChat,
   handleOpenQuickTerminal,
   toggleSearch,
+  taskListingControls,
 }: {
   workspaceId?: string;
   workspaceLabel: string;
@@ -110,11 +112,13 @@ function MobileHeaderActionItems({
   handleOpenQuickChat: () => void;
   handleOpenQuickTerminal: () => void;
   toggleSearch: () => void;
+  taskListingControls?: ReactNode;
 }) {
   const { t } = useTranslation();
 
   return (
     <>
+      {taskListingControls}
       <MainTopBarPluginActions
         workspaceId={workspaceId}
         workspaceLabel={workspaceLabel}
@@ -213,6 +217,7 @@ export function KanbanHeaderMobile({
   onSearchChange,
   isSearchLoading = false,
   tasksListOptions,
+  taskListingControls,
 }: KanbanHeaderMobileProps) {
   const isMenuOpen = useAppStore((state) => state.mobileKanban.isMenuOpen);
   const setMenuOpen = useAppStore((state) => state.setMobileKanbanMenuOpen);
@@ -255,6 +260,7 @@ export function KanbanHeaderMobile({
             handleOpenQuickChat={handleOpenQuickChat}
             handleOpenQuickTerminal={handleOpenQuickTerminal}
             toggleSearch={toggleSearch}
+            taskListingControls={taskListingControls}
             setMenuOpen={setMenuOpen}
           />
         }

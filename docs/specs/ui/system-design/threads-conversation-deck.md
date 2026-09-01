@@ -17,6 +17,10 @@ source. Task-session membership remains backend-owned. The frontend does not
 copy session selection into global task-page state and does not make Threads a
 session-management surface.
 
+[Threads Saved Views](threads-saved-views.md) owns the task query, admitted
+task set, saved order, and optional column limit. This design applies after
+that query admits a task shell.
+
 The paired platform design owns network hydration, compact status events, and
 full session subscription limits. This UI design owns the task-column shell,
 the desktop tab row, the mobile picker, selection rules, status presentation,
@@ -32,7 +36,7 @@ and deep-link behavior.
 
 ## Components and responsibilities
 
-- `ThreadsPageClient` keeps workspace and workflow scope, derives task-column
+- `ThreadsPageClient` keeps workspace scope, derives task-column
   summaries, resolves `taskId` and `sessionId` from the URL, and owns routing
   back to the full task page.
 - `selectActiveThreads` remains a bounded task-level selector. It returns the
@@ -97,15 +101,21 @@ The tab list does not wrap onto a new header row. Tabs expose standard tab-list
 and selected-tab semantics. They do not expose add, close, context-menu,
 double-click, drag, or management callbacks.
 
-The implementation can reuse `SessionTabs` rendering primitives, session sort
-helpers, agent labels, and status icons. It must not reuse
+The implementation can reuse `SessionTabs`, session sort helpers, agent labels,
+`AgentLogo`, and `GridSpinner`. It must not reuse
 `PreviewSessionBody`, because that component supplies a custom sender instead
 of the standard `TaskChatPanel` message path.
 
 ## Status projection
 
-One pure helper creates a session status from compact `TaskSession` fields.
-Presentation uses this precedence:
+The session selector uses agent identity as its leading presentation. It uses
+the effective agent profile name as its label. If profile data is not available,
+it uses the custom session name or the existing fallback label. A settled
+session shows `AgentLogo`. A `STARTING` or `RUNNING` session shows `GridSpinner`
+in place of that logo.
+
+One pure helper creates the task-column status from compact `TaskSession`
+fields. The column presentation uses this precedence:
 
 1. `pending_action === "permission"`: permission indicator and `Permission needed`.
 2. `pending_action === "clarification"`: question indicator and `Question from agent`.
@@ -116,9 +126,8 @@ Presentation uses this precedence:
 
 Task-column status uses explicit task-wide pending action only to say that some
 session needs attention. It never assigns that action to the primary session.
-After session membership is loaded, the selector item identifies the exact
-owner. When the task is at its review workflow outcome and no explicit action
-exists, the column uses a completion indicator and `Ready for review`.
+When the task is at its review workflow outcome and no explicit action exists,
+the column uses a completion indicator and `Ready for review`.
 
 All new text uses the `threads` i18n namespace in every supported catalog. The
 question and permission variants use different accessible names as well as
@@ -172,7 +181,7 @@ Phone keeps horizontal swipe for task columns and does not add a second
 horizontal gesture region. The metadata row shows a compact
 `MobilePillButton`, for example `Agent 2 of 3`, on the right. It opens a
 `MobilePickerSheet` with one 44-pixel-or-larger row per session. Rows contain
-the label, selected state, and the same attention or activity status used by
+the label, selected state, and the same agent identity or grid spinner used by
 desktop tabs. The sheet owns vertical scrolling and safe-area padding.
 
 Long metadata truncates in the left region. Desktop tabs scroll inside the
@@ -190,7 +199,7 @@ horizontal overflow ownership.
 - If the selected session disappears, local fallback runs once against the
   newest membership and never moves the task column.
 - If transcript hydration fails, the selected tab and other lightweight tab
-  statuses remain available while the chat shows its existing retry state.
+  identities remain available while the chat shows its existing retry state.
 
 ## Verification design
 
@@ -200,7 +209,7 @@ and assert membership/chat mount counts as columns enter and leave the viewport.
 They also prove that only selected sessions mount `ThreadConversation`.
 
 Desktop Playwright covers same-row tabs, switch-only controls, exact
-conversation switching, status updates on inactive tabs, deep links, and
+conversation switching, agent identity, running spinners, deep links, and
 horizontal scroll activation. Phone Playwright covers one active snapped
 conversation, the picker sheet, 44-pixel rows, safe-area containment, and zero
 document overflow.
@@ -209,4 +218,3 @@ document overflow.
 
 - [Viewport Activation Owns Threads Session Streams](../../../decisions/2026-08-28-viewport-activation-owns-thread-streams.md)
 - [Separate Task Summary and Session Stream Traffic](../../../decisions/2026-08-01-separate-task-summary-session-stream-traffic.md)
-

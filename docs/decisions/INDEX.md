@@ -225,3 +225,4 @@ Read individual ADRs for full context. Create new ones via `/record decision` or
 | 2026-08-30-environment-owned-git-status | [Project Current Git Status From the Task Environment](2026-08-30-environment-owned-git-status.md) | proposed | backend, frontend, protocol | 2026-08-30 |
 | 2026-08-31-local-worktree-refresh-best-effort | [Local Worktree Refresh Is Best Effort](2026-08-31-local-worktree-refresh-best-effort.md) | accepted | backend, security, operations | 2026-08-31 |
 | 2026-08-31-passthrough-running-publication | [Defer Passthrough Running Publication Until Guard Release](2026-08-31-passthrough-running-publication.md) | accepted | backend | 2026-08-31 |
+| 2026-08-31-surface-owned-saved-task-views | [Keep Saved Task Views Surface Owned](2026-08-31-surface-owned-saved-task-views.md) | proposed | backend, frontend | 2026-08-31 |

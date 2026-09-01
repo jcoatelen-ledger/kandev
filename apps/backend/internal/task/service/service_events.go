@@ -398,6 +398,7 @@ func (s *Service) publishTaskEventNow(ctx context.Context, eventType string, tas
 		// Consumers that restore quick-chat tabs filter on origin, so it has to
 		// travel with the event and not just the HTTP DTO.
 		"origin": task.Origin,
+		"labels": task.Labels,
 		// Sent as an explicit true/false (never omitted) so a clear reaches
 		// open clients too: preserveOmittedField on the frontend only pins the
 		// previous value when the key is absent from the payload, and an
@@ -592,6 +593,16 @@ func (s *Service) addPrimarySessionEventFields(ctx context.Context, taskID strin
 	s.addPrimarySessionPendingActionEventField(ctx, taskID, sessionInfo, data)
 	if sessionInfo.ExecutorID != "" {
 		data["primary_executor_id"] = sessionInfo.ExecutorID
+	}
+	data["primary_agent_profile_id"] = nil
+	data["primary_agent_name"] = nil
+	if sessionInfo.AgentProfileID != "" {
+		data["primary_agent_profile_id"] = sessionInfo.AgentProfileID
+	}
+	if sessionInfo.AgentProfileSnapshot != nil {
+		if name, ok := sessionInfo.AgentProfileSnapshot["name"].(string); ok && name != "" {
+			data["primary_agent_name"] = name
+		}
 	}
 	var execType string
 	if sessionInfo.ExecutorSnapshot != nil {

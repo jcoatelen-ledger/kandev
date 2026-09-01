@@ -48,6 +48,18 @@ describe("applyStableThreadOrder", () => {
     expect(ids(withNew)).toEqual(["a", "y", "x"]);
   });
 
+  it("keeps committed matching columns when a live rank change reaches a cap", () => {
+    const retained = applyStableThreadOrder(["a", "b"], [thread("c"), thread("a"), thread("b")], 2);
+
+    expect(ids(retained)).toEqual(["a", "b"]);
+  });
+
+  it("fills a released capped slot from the current sorted matches", () => {
+    const filled = applyStableThreadOrder(["a", "b"], [thread("c"), thread("a")], 2);
+
+    expect(ids(filled)).toEqual(["a", "c"]);
+  });
+
   it("drops a settled thread without disturbing the columns around it", () => {
     const remaining = applyStableThreadOrder(["a", "b", "c"], [thread("c"), thread("a")]);
 
@@ -80,5 +92,18 @@ describe("useStableThreadOrder", () => {
     rerender({ threads: [thread("new"), thread("b"), thread("a")] });
 
     expect(ids(result.current)).toEqual(["a", "b", "new"]);
+  });
+
+  it("restarts from the incoming sorted order when the query reset key changes", () => {
+    const { result, rerender } = renderHook(
+      ({ threads, resetKey }) => useStableThreadOrder(threads, resetKey),
+      {
+        initialProps: { threads: [thread("a"), thread("b")], resetKey: "first" },
+      },
+    );
+
+    rerender({ threads: [thread("b"), thread("a")], resetKey: "second" });
+
+    expect(ids(result.current)).toEqual(["b", "a"]);
   });
 });
