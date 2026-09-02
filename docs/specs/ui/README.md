@@ -183,6 +183,4 @@ behavior/state.
 
 ## Related
 
-- [Tasks](../tasks/README.md)
-- [Plugins](../plugins/README.md)
 - [Platform](../platform/README.md)
