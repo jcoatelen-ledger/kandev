@@ -10,6 +10,7 @@ requirements:
 acceptance_criteria:
   - AC-AGENTS-AGENT-RICH-OUTPUT-001.1
 system_design:
+  - ../../specs/agents/system-design/agent-rich-output.md
   - ../../specs/ui/system-design/kandev-mcp-tool-results.md
 ---
 
@@ -109,6 +110,7 @@ or changes user-facing copy; no copy change is planned.
 - `apps/web/components/task/chat/messages/kandev-tool-message.test.tsx`
 - `apps/web/hooks/use-processed-messages-rich-output.test.ts`
 - `docs/specs/agents/requirements/agent-rich-output.md`
+- `docs/specs/agents/system-design/agent-rich-output.md`
 - `docs/specs/ui/system-design/kandev-mcp-tool-results.md`
 - `docs/plans/native-kandev-mcp-rendering/plan.md`
 - `docs/plans/native-kandev-mcp-rendering/task-01-normalize-cursor-kandev-mcp.md`

@@ -25,7 +25,9 @@ then identifies the renderer and selects one usable payload from that result.
 
 The Agents-owned
 [native rich-output contract](../../agents/requirements/agent-rich-output.md)
-consumes this shared identity, argument, result-selection, and replay path.
+and its
+[ACP identity design](../../agents/system-design/agent-rich-output.md)
+consume this shared identity, argument, result-selection, and replay path.
 
 ## Components and responsibilities
 

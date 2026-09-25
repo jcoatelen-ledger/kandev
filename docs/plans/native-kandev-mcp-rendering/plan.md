@@ -4,6 +4,7 @@ status: complete
 requirements:
   - REQ-AGENTS-AGENT-RICH-OUTPUT-001
 system_design:
+  - ../../specs/agents/system-design/agent-rich-output.md
   - ../../specs/ui/system-design/kandev-mcp-tool-results.md
 legacy_specs: []
 ---
