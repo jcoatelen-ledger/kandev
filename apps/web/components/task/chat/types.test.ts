@@ -51,6 +51,20 @@ describe("kandevToolStemOf", () => {
   it("reads the persisted Cursor title when the generic name is only a category", () => {
     expect(kandevToolStemOf(toolCall("kandev: show_rich_output_kandev"))).toBe("show_rich_output");
   });
+
+  it("rejects a Kandev title for a foreign persisted provider", () => {
+    const message = toolCall("kandev: show_rich_output_kandev");
+    const metadata = message.metadata as ToolCallMetadata;
+    metadata.normalized!.generic!.input = {
+      raw_input: {
+        providerIdentifier: "github",
+        toolName: "show_rich_output_kandev",
+        args: {},
+      },
+    };
+
+    expect(kandevToolStemOf(message)).toBeNull();
+  });
 });
 
 describe("isRichOutputMessage", () => {
