@@ -47,13 +47,19 @@ describe("kandevToolStemOf", () => {
 
     expect(kandevToolStemOf(message)).toBe("show_rich_output");
   });
+
+  it("reads the persisted Cursor title when the generic name is only a category", () => {
+    expect(kandevToolStemOf(toolCall("kandev: show_rich_output_kandev"))).toBe("show_rich_output");
+  });
 });
 
 describe("isRichOutputMessage", () => {
   it("matches only the exact Kandev rich-output tool call", () => {
     expect(isRichOutputMessage(toolCall("mcp__kandev__show_rich_output_kandev"))).toBe(true);
     expect(isRichOutputMessage(toolCall("kandev/show_rich_output_kandev"))).toBe(true);
+    expect(isRichOutputMessage(toolCall("kandev: show_rich_output_kandev"))).toBe(true);
     expect(isRichOutputMessage(toolCall("mcp__kandev__show_walkthrough_kandev"))).toBe(false);
+    expect(isRichOutputMessage(toolCall("kandev: Edit"))).toBe(false);
     expect(isRichOutputMessage(toolCall("other/show_rich_output_kandev"))).toBe(false);
     expect(isRichOutputMessage(toolCall("mcp__other__show_rich_output"))).toBe(false);
   });
